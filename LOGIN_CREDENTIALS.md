@@ -28,7 +28,6 @@ Use this account to access the employer features including:
 - Purchase and use credits
 
 ## How to Login
-
 1. Navigate to http://localhost:8085 in your browser
 2. Select either "Job seeker" or "Employer" role
 3. Enter the credentials above
