@@ -1,0 +1,308 @@
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
+import { Card, Text, Button as PaperButton, ActivityIndicator, Chip, Divider, IconButton } from 'react-native-paper';
+import * as DocumentPicker from 'expo-document-picker';
+import { useAppSelector } from '../../../store/hooks';
+import { profileApi, DocumentUpload } from '../../../services/profileApi';
+import { PrimaryButton } from '../../../components/PrimaryButton';
+
+type DocumentType = 'cv' | 'cover_letter' | 'id_document' | 'certificate' | 'reference' | 'portfolio';
+
+interface Document {
+  id: number;
+  documentType: DocumentType;
+  documentName: string;
+  fileUrl: string;
+  fileSize: number | null;
+  mimeType: string | null;
+  uploadedAt: string;
+  updatedAt: string;
+  description: string | null;
+  isPrimary: boolean;
+}
+
+const DOCUMENT_TYPES: { type: DocumentType; label: string; icon: string; description: string }[] = [
+  {
+    type: 'cv',
+    label: 'CV / Resume',
+    icon: 'file-document',
+    description: 'Upload your curriculum vitae or resume'
+  },
+  {
+    type: 'cover_letter',
+    label: 'Cover Letter',
+    icon: 'file-edit',
+    description: 'Upload your cover letter template'
+  },
+  {
+    type: 'id_document',
+    label: 'ID Document',
+    icon: 'card-account-details',
+    description: 'Upload identification document (optional)'
+  },
+  {
+    type: 'certificate',
+    label: 'Certificates',
+    icon: 'certificate',
+    description: 'Upload professional certificates'
+  },
+  {
+    type: 'reference',
+    label: 'References',
+    icon: 'account-check',
+    description: 'Upload reference letters'
+  },
+  {
+    type: 'portfolio',
+    label: 'Portfolio Items',
+    icon: 'briefcase',
+    description: 'Upload portfolio work samples'
+  },
+];
+
+export function DocumentsManagerScreen() {
+  const token = useAppSelector((state) => state.auth.token);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  const loadDocuments = async () => {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      const response = await profileApi.getDocuments(token);
+      setDocuments(response.documents);
+    } catch (error) {
+      console.error('Load documents error:', error);
+      Alert.alert('Error', 'Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePickDocument = async (type: DocumentType) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (!token) {
+        Alert.alert('Error', 'Not authenticated');
+        return;
+      }
+
+      setUploading(true);
+
+      // Create upload payload
+      const upload: DocumentUpload = {
+        documentType: type,
+        file: {
+          uri: result.assets[0].uri,
+          name: result.assets[0].name,
+          type: result.assets[0].mimeType || 'application/pdf',
+        },
+        isPrimary: documents.filter(d => d.documentType === type).length === 0, // First document of type is primary
+      };
+
+      await profileApi.uploadDocument(token, upload);
+
+      Alert.alert('Success', 'Document uploaded successfully');
+      await loadDocuments();
+    } catch (error: any) {
+      console.error('Upload document error:', error);
+      Alert.alert('Error', error.message || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: number, documentName: string) => {
+    if (!token) return;
+
+    Alert.alert(
+      'Delete Document',
+      `Are you sure you want to delete "${documentName}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await profileApi.deleteDocument(token, documentId);
+              Alert.alert('Success', 'Document deleted successfully');
+              await loadDocuments();
+            } catch (error) {
+              console.error('Delete document error:', error);
+              Alert.alert('Error', 'Failed to delete document');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleOpenDocument = async (fileUrl: string) => {
+    try {
+      const supported = await Linking.canOpenURL(fileUrl);
+      if (supported) {
+        await Linking.openURL(fileUrl);
+      } else {
+        Alert.alert('Error', 'Cannot open this document');
+      }
+    } catch (error) {
+      console.error('Open document error:', error);
+      Alert.alert('Error', 'Failed to open document');
+    }
+  };
+
+  const formatFileSize = (bytes: number | null): string => {
+    if (!bytes) return 'Unknown size';
+    const kb = bytes / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(1)} MB`;
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  const getDocumentsByType = (type: DocumentType): Document[] => {
+    return documents.filter(d => d.documentType === type);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 16 }}>Loading documents...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text variant="headlineMedium">Document Management</Text>
+        <Text variant="bodyMedium" style={{ color: 'gray', marginTop: 8 }}>
+          Upload and manage your professional documents
+        </Text>
+      </View>
+
+      {DOCUMENT_TYPES.map((docType) => {
+        const typeDocuments = getDocumentsByType(docType.type);
+
+        return (
+          <Card key={docType.type} style={styles.card}>
+            <Card.Title
+              title={docType.label}
+              subtitle={docType.description}
+              left={(props) => <IconButton {...props} icon={docType.icon} />}
+            />
+            <Card.Content>
+              {typeDocuments.length > 0 ? (
+                <View>
+                  {typeDocuments.map((doc) => (
+                    <View key={doc.id} style={styles.documentItem}>
+                      <View style={styles.documentInfo}>
+                        <View style={{ flex: 1 }}>
+                          <Text variant="titleSmall">{doc.documentName}</Text>
+                          <Text variant="bodySmall" style={{ color: 'gray' }}>
+                            {formatFileSize(doc.fileSize)} • {formatDate(doc.uploadedAt)}
+                          </Text>
+                          {doc.description && (
+                            <Text variant="bodySmall" style={{ color: 'gray', marginTop: 4 }}>
+                              {doc.description}
+                            </Text>
+                          )}
+                          {doc.isPrimary && (
+                            <Chip mode="flat" compact style={{ alignSelf: 'flex-start', marginTop: 4 }}>
+                              Primary
+                            </Chip>
+                          )}
+                        </View>
+                        <View style={styles.documentActions}>
+                          <IconButton
+                            icon="eye"
+                            size={20}
+                            onPress={() => handleOpenDocument(doc.fileUrl)}
+                          />
+                          <IconButton
+                            icon="delete"
+                            size={20}
+                            iconColor="red"
+                            onPress={() => handleDeleteDocument(doc.id, doc.documentName)}
+                          />
+                        </View>
+                      </View>
+                      <Divider style={{ marginTop: 8 }} />
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={{ color: 'gray', marginBottom: 12 }}>
+                  No {docType.label.toLowerCase()} uploaded yet
+                </Text>
+              )}
+
+              <PrimaryButton
+                onPress={() => handlePickDocument(docType.type)}
+                disabled={uploading}
+                mode="outlined"
+                style={{ marginTop: 8 }}
+              >
+                {uploading ? 'Uploading...' : `Upload ${docType.label}`}
+              </PrimaryButton>
+            </Card.Content>
+          </Card>
+        );
+      })}
+
+      <View style={{ marginBottom: 32 }} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    padding: 16,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  card: {
+    margin: 16,
+    marginBottom: 8,
+  },
+  documentItem: {
+    marginBottom: 8,
+  },
+  documentInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  documentActions: {
+    flexDirection: 'row',
+  },
+});
