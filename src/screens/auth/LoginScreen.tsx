@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -17,6 +17,7 @@ import { colors, spacing, borderRadius, shadows } from '@/theme';
 import type { UserRole } from '@/types';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { FadeIn } from '@/components/animations/FadeIn';
+import { authApi } from '@/services/authApi';
 
 const schema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
@@ -30,17 +31,62 @@ const LoginScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { track } = useAnalytics();
   const [role, setRoleState] = React.useState<UserRole>('jobSeeker');
+  const [errorMessage, setErrorMessage] = React.useState<string>('');
+  const [isLoading, setIsLoading] = React.useState(false);
 
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<FormValues>({ resolver: yupResolver(schema) });
 
   const onSubmit = handleSubmit(async (values) => {
-    track('login_attempt', { role, email: values.email });
-    dispatch(setRole(role));
-    dispatch(loginSuccess({ token: 'mock-token', userRole: role }));
+    try {
+      setErrorMessage('');
+      setIsLoading(true);
+      track('login_attempt', { role, email: values.email });
+
+      // Call real API
+      const response = await authApi.login({
+        email: values.email,
+        password: values.password,
+      });
+
+      // Update Redux store with real token and user data
+      dispatch(setRole(role));
+      dispatch(loginSuccess({
+        token: response.token,
+        userRole: role
+      }));
+
+      track('login_success', { role, email: values.email });
+    } catch (error) {
+      track('login_error', { role, email: values.email, error: String(error) });
+
+      let errorMsg = 'An unexpected error occurred. Please try again.';
+
+      if (error instanceof Error) {
+        // Check for specific error types
+        if (error.message.includes('Invalid email or password')) {
+          errorMsg = 'Invalid email or password. Please check your credentials and try again.';
+        } else if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+          errorMsg = 'Unable to connect to the server. Please check your internet connection and ensure the backend is running.';
+        } else {
+          errorMsg = error.message;
+        }
+      }
+
+      setErrorMessage(errorMsg);
+
+      // Also show alert for critical errors
+      Alert.alert(
+        'Login Failed',
+        errorMsg,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
   });
 
   return (
@@ -84,18 +130,18 @@ const LoginScreen: React.FC = () => {
                 </View>
                 <View style={styles.demoItem}>
                   <Text variant="bodySmall" style={styles.demoLabel}>
-                    Job Seeker:
+                    Demo Account:
                   </Text>
                   <Text variant="bodyMedium" style={styles.demoValue}>
-                    candidate@demo.com / password123
+                    demo@writenow.com / Demo123!
                   </Text>
                 </View>
                 <View style={styles.demoItem}>
                   <Text variant="bodySmall" style={styles.demoLabel}>
-                    Employer:
+                    Note:
                   </Text>
-                  <Text variant="bodyMedium" style={styles.demoValue}>
-                    recruiter@demo.com / password123
+                  <Text variant="bodySmall" style={styles.demoValue}>
+                    Login with real database authentication
                   </Text>
                 </View>
               </Card.Content>
@@ -130,6 +176,22 @@ const LoginScreen: React.FC = () => {
               </View>
             </View>
           </FadeIn>
+
+          {/* Error Message */}
+          {errorMessage ? (
+            <FadeIn delay={250}>
+              <Card style={styles.errorCard}>
+                <Card.Content>
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorIcon}>⚠️</Text>
+                    <Text variant="bodyMedium" style={styles.errorText}>
+                      {errorMessage}
+                    </Text>
+                  </View>
+                </Card.Content>
+              </Card>
+            </FadeIn>
+          ) : null}
 
           {/* Form Fields */}
           <FadeIn delay={300}>
@@ -166,8 +228,8 @@ const LoginScreen: React.FC = () => {
               />
 
               <View style={styles.actionButtons}>
-                <PrimaryButton onPress={onSubmit} loading={isSubmitting}>
-                  Sign In
+                <PrimaryButton onPress={onSubmit} loading={isLoading} disabled={isLoading}>
+                  {isLoading ? 'Signing In...' : 'Sign In'}
                 </PrimaryButton>
 
                 <Button
@@ -343,6 +405,26 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  errorCard: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorIcon: {
+    fontSize: 20,
+  },
+  errorText: {
+    flex: 1,
+    color: '#991B1B',
+    fontWeight: '500',
   },
 });
 

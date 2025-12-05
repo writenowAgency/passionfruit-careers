@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ProfileScreen from '@/screens/jobSeeker/profile/ProfileScreen';
+import EditProfileScreen from '@/screens/jobSeeker/profile/EditProfileScreen';
 import SkillsManager from '@/screens/jobSeeker/profile/SkillsManager';
 import DocumentsManager from '@/screens/jobSeeker/profile/DocumentsManager';
 import CareerInsights from '@/screens/jobSeeker/profile/CareerInsights';
@@ -15,6 +16,7 @@ const Stack = createNativeStackNavigator<ProfileStackParamList>();
 export const ProfileNavigator = () => (
   <Stack.Navigator>
     <Stack.Screen name="ProfileHome" component={ProfileScreen} options={{ title: 'Profile' }} />
+    <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
     <Stack.Screen name="SkillsManager" component={SkillsManager} options={{ title: 'Skills' }} />
     <Stack.Screen name="DocumentsManager" component={DocumentsManager} options={{ title: 'Documents' }} />
     <Stack.Screen name="CareerInsights" component={CareerInsights} options={{ title: 'Insights' }} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -13,6 +13,7 @@ import { useAppDispatch } from '@/store/hooks';
 import { loginSuccess, setRole } from '@/store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 import type { UserRole } from '@/types';
+import { authApi } from '@/services/authApi';
 
 const schema = yup.object({
   fullName: yup.string().required('Name is required'),
@@ -25,18 +26,73 @@ type FormValues = yup.InferType<typeof schema>;
 
 const RegisterScreen: React.FC = () => {
   const [role, setRoleState] = React.useState<UserRole>('jobSeeker');
+  const [errorMessage, setErrorMessage] = React.useState<string>('');
+  const [isLoading, setIsLoading] = React.useState(false);
   const dispatch = useAppDispatch();
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<FormValues>({
     resolver: yupResolver(schema, { context: { role } }),
   });
 
-  const onSubmit = handleSubmit((values) => {
-    dispatch(setRole(role));
-    dispatch(loginSuccess({ token: 'mock-token', userRole: role }));
+  const onSubmit = handleSubmit(async (values) => {
+    try {
+      setErrorMessage('');
+      setIsLoading(true);
+
+      // Split full name into first and last name
+      const nameParts = values.fullName.trim().split(' ');
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts.slice(1).join(' ') || 'Name';
+
+      // Call real API
+      const response = await authApi.register({
+        email: values.email,
+        password: values.password,
+        firstName,
+        lastName,
+      });
+
+      // Update Redux store with real token and user data
+      dispatch(setRole(role));
+      dispatch(loginSuccess({
+        token: response.token,
+        userRole: role
+      }));
+
+      Alert.alert(
+        'Success',
+        'Your account has been created successfully!',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      let errorMsg = 'An unexpected error occurred. Please try again.';
+
+      if (error instanceof Error) {
+        // Check for specific error types
+        if (error.message.includes('User already exists')) {
+          errorMsg = 'An account with this email already exists. Please use a different email or try logging in.';
+        } else if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+          errorMsg = 'Unable to connect to the server. Please check your internet connection and ensure the backend is running.';
+        } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+          errorMsg = 'Please check your input. ' + error.message;
+        } else {
+          errorMsg = error.message;
+        }
+      }
+
+      setErrorMessage(errorMsg);
+
+      Alert.alert(
+        'Registration Failed',
+        errorMsg,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
   });
 
   return (
@@ -94,6 +150,22 @@ const RegisterScreen: React.FC = () => {
               </View>
             </View>
           </FadeIn>
+
+          {/* Error Message */}
+          {errorMessage ? (
+            <FadeIn delay={150}>
+              <Card style={styles.errorCard}>
+                <Card.Content>
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorIcon}>⚠️</Text>
+                    <Text variant="bodyMedium" style={styles.errorText}>
+                      {errorMessage}
+                    </Text>
+                  </View>
+                </Card.Content>
+              </Card>
+            </FadeIn>
+          ) : null}
 
           {/* Form Fields */}
           <FadeIn delay={200}>
@@ -164,8 +236,8 @@ const RegisterScreen: React.FC = () => {
               )}
 
               <View style={styles.actionButtons}>
-                <PrimaryButton onPress={onSubmit} loading={isSubmitting}>
-                  Sign Up
+                <PrimaryButton onPress={onSubmit} loading={isLoading} disabled={isLoading}>
+                  {isLoading ? 'Creating Account...' : 'Create Account'}
                 </PrimaryButton>
               </View>
             </View>
@@ -245,6 +317,26 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     marginTop: spacing.md,
+  },
+  errorCard: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.lg,
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorIcon: {
+    fontSize: 20,
+  },
+  errorText: {
+    flex: 1,
+    color: '#991B1B',
+    fontWeight: '500',
   },
 });
 
