@@ -17,6 +17,7 @@ export interface ProfileData {
     phone: string | null;
     linkedinUrl: string | null;
     portfolioUrl: string | null;
+    profilePhotoUrl: string | null;
     resumeUrl: string | null;
     coverLetterUrl: string | null;
     idDocumentUrl: string | null;
@@ -319,6 +320,28 @@ class ProfileApiService {
       return data;
     } catch (error) {
       console.error('Add education error:', error);
+      throw error;
+    }
+  }
+
+  // Update profile photo URL
+  async updateProfilePhotoUrl(token: string, photoUrl: string): Promise<{ message: string; photoUrl: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/profile/photo-url`, {
+        method: 'PUT',
+        headers: this.getAuthHeader(token),
+        body: JSON.stringify({ photoUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update photo URL');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Update photo URL error:', error);
       throw error;
     }
   }

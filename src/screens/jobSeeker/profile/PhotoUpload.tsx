@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Image, Alert } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, Platform, Alert, Pressable } from 'react-native';
 import { Button, Text, ActivityIndicator, IconButton } from 'react-native-paper';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useAppSelector } from '@/store/hooks';
 import { profileApi } from '@/services/profileApi';
+import { API_CONFIG } from '@/config/api';
+import { colors, spacing, borderRadius } from '@/theme';
 
 interface PhotoUploadProps {
   currentPhotoUrl?: string | null;
@@ -19,116 +22,130 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
 }) => {
   const [uploading, setUploading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(currentPhotoUrl || null);
-  const token = useAppSelector((state) => state.auth.token);
+  const auth = useAppSelector((state) => state.auth);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Request camera permissions
-  const requestCameraPermission = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is required to take photos.');
-      return false;
-    }
-    return true;
-  };
+  // Sync imageUri with currentPhotoUrl prop when it changes
+  useEffect(() => {
+    console.log('[PhotoUpload] currentPhotoUrl changed:', currentPhotoUrl);
+    setImageUri(currentPhotoUrl || null);
+  }, [currentPhotoUrl]);
 
-  // Request media library permissions
-  const requestMediaLibraryPermission = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Photo library permission is required to select photos.');
-      return false;
-    }
-    return true;
-  };
-
-  // Compress and resize image
   const processImage = async (uri: string) => {
     try {
       const manipResult = await manipulateAsync(
         uri,
-        [{ resize: { width: 800 } }], // Resize to max width 800px
+        [{ resize: { width: 800 } }],
         { compress: 0.7, format: SaveFormat.JPEG }
       );
       return manipResult.uri;
     } catch (error) {
       console.error('Image processing error:', error);
-      return uri; // Return original if processing fails
+      return uri;
     }
   };
 
-  // Take photo with camera
-  const takePhoto = async () => {
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) return;
-
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const processedUri = await processImage(result.assets[0].uri);
-        setImageUri(processedUri);
-        await uploadPhoto(processedUri);
-      }
-    } catch (error) {
-      console.error('Camera error:', error);
-      Alert.alert('Error', 'Failed to take photo');
-    }
-  };
-
-  // Pick photo from gallery
-  const pickImage = async () => {
-    const hasPermission = await requestMediaLibraryPermission();
-    if (!hasPermission) return;
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const processedUri = await processImage(result.assets[0].uri);
-        setImageUri(processedUri);
-        await uploadPhoto(processedUri);
-      }
-    } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to pick image');
-    }
-  };
-
-  // Upload photo to server
-  const uploadPhoto = async (uri: string) => {
-    if (!token) {
+  const handleUpload = async (file: File | Blob, fileName: string) => {
+    if (!auth.token || !auth.user) {
       Alert.alert('Error', 'You must be logged in to upload photos');
       return;
     }
 
+    setUploading(true);
+
     try {
-      setUploading(true);
-      const response = await profileApi.uploadPhoto(token, uri);
-      setImageUri(response.photoUrl);
-      onPhotoUploaded(response.photoUrl);
+      // Upload via backend API (backend handles R2 upload securely)
+      const formData = new FormData();
+      formData.append('photo', file, fileName);
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/profile/photo`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${auth.token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to upload photo');
+      }
+
+      console.log('[PhotoUpload] Upload successful, new photo URL:', data.photoUrl);
+      setImageUri(data.photoUrl);
+      onPhotoUploaded(data.photoUrl);
       Alert.alert('Success', 'Profile photo uploaded successfully!');
+
     } catch (error) {
-      console.error('Upload error:', error);
-      Alert.alert('Upload Failed', error instanceof Error ? error.message : 'Failed to upload photo');
-      setImageUri(currentPhotoUrl || null); // Revert to previous photo
+      console.error('Upload process error:', error);
+      Alert.alert('Upload Failed', error instanceof Error ? error.message : 'An unknown error occurred');
+      setImageUri(currentPhotoUrl || null); // Revert on failure
     } finally {
       setUploading(false);
     }
   };
 
-  // Delete photo
+  // Web file selection
+  const handleWebFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      Alert.alert('Invalid File Type', `Please select a valid image file (${allowedTypes.join(', ')})`);
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSizeMB = 5;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+        Alert.alert('File Too Large', `Please select an image smaller than ${maxSizeMB}MB`);
+        return;
+    }
+
+    setImageUri(URL.createObjectURL(file));
+    await handleUpload(file, file.name);
+  };
+
+  // Native image picking
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Photo library permission is required to select photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      try {
+        const processedUri = await processImage(result.assets[0].uri);
+        setImageUri(processedUri);
+        
+        // Convert URI to blob
+        const response = await fetch(processedUri);
+        const blob = await response.blob();
+        const filename = processedUri.split('/').pop() || 'photo.jpg';
+
+        await handleUpload(blob, filename);
+
+      } catch (error) {
+        console.error('Image processing/upload error:', error);
+        Alert.alert('Error', 'Failed to process image');
+      }
+    }
+  };
+  
   const deletePhoto = async () => {
-    if (!token) return;
+    if (!auth.token) return;
 
     Alert.alert(
       'Delete Photo',
@@ -141,7 +158,8 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
           onPress: async () => {
             try {
               setUploading(true);
-              await profileApi.deletePhoto(token);
+              // We should probably also delete the file from R2, but the backend handles that.
+              await profileApi.deletePhoto(auth.token);
               setImageUri(null);
               onPhotoDeleted();
               Alert.alert('Success', 'Profile photo deleted');
@@ -156,44 +174,71 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
       ]
     );
   };
-
-  // Show photo selection options
-  const showPhotoOptions = () => {
-    Alert.alert(
-      'Profile Photo',
-      'Choose an option',
-      [
-        { text: 'Take Photo', onPress: takePhoto },
-        { text: 'Choose from Library', onPress: pickImage },
-        imageUri ? { text: 'Delete Photo', onPress: deletePhoto, style: 'destructive' } : null,
-        { text: 'Cancel', style: 'cancel' },
-      ].filter(Boolean) as any
-    );
+  
+  const handleSelectPhoto = () => {
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
+    } else {
+      pickImage();
+    }
   };
 
   return (
     <View style={styles.container}>
+      {Platform.OS === 'web' && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleWebFileSelect}
+        />
+      )}
+
       <View style={styles.photoContainer}>
         {imageUri ? (
-          <View>
-            <Image source={{ uri: imageUri }} style={styles.photo} />
+          <Pressable onPress={handleSelectPhoto} disabled={uploading}>
+            {Platform.OS === 'web' ? (
+              <img
+                src={imageUri}
+                alt="Profile"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  borderRadius: 75,
+                }}
+                onError={(e) => console.error('[PhotoUpload] Image load error:', e)}
+                onLoad={() => console.log('[PhotoUpload] Image loaded successfully:', imageUri)}
+              />
+            ) : (
+              <Image
+                source={{ uri: imageUri }}
+                style={styles.photo}
+                contentFit="cover"
+                cachePolicy="none"
+                onError={(error) => console.error('[PhotoUpload] Image load error:', error)}
+                onLoad={() => console.log('[PhotoUpload] Image loaded successfully:', imageUri)}
+              />
+            )}
             {uploading && (
               <View style={styles.uploadingOverlay}>
                 <ActivityIndicator size="large" color="#fff" />
               </View>
             )}
-            <IconButton
-              icon="camera"
-              size={24}
-              style={styles.editButton}
-              iconColor="#fff"
-              containerColor="#6200ee"
-              onPress={showPhotoOptions}
-              disabled={uploading}
-            />
-          </View>
+            <View style={styles.editButton}>
+              <IconButton
+                icon="camera"
+                size={20}
+                iconColor="#fff"
+                containerColor={colors.primary}
+                onPress={handleSelectPhoto}
+                disabled={uploading}
+              />
+            </View>
+          </Pressable>
         ) : (
-          <View style={styles.placeholderContainer}>
+          <Pressable style={styles.placeholderContainer} onPress={handleSelectPhoto} disabled={uploading}>
             <IconButton
               icon="account"
               size={60}
@@ -202,26 +247,42 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
             <Text variant="bodyMedium" style={styles.placeholderText}>
               No photo
             </Text>
-          </View>
+          </Pressable>
         )}
       </View>
 
       <View style={styles.buttonContainer}>
         {imageUri ? (
-          <Button
-            mode="outlined"
-            onPress={showPhotoOptions}
-            disabled={uploading}
-            style={styles.button}
-          >
-            Change Photo
-          </Button>
+          <View style={styles.buttonRow}>
+            <Button
+              mode="outlined"
+              onPress={handleSelectPhoto}
+              disabled={uploading}
+              style={[styles.button, styles.changeButton]}
+              icon="camera"
+            >
+              Change
+            </Button>
+            <Button
+              mode="outlined"
+              onPress={deletePhoto}
+              disabled={uploading}
+              style={[styles.button, styles.deleteButton]}
+              buttonColor="#ffebee"
+              textColor="#c62828"
+              icon="delete"
+            >
+              Delete
+            </Button>
+          </View>
         ) : (
           <Button
             mode="contained"
-            onPress={showPhotoOptions}
+            onPress={handleSelectPhoto}
             disabled={uploading}
             style={styles.button}
+            icon="camera-plus"
+            buttonColor={colors.primary}
           >
             Add Photo
           </Button>
@@ -230,7 +291,8 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
 
       {uploading && (
         <View style={styles.uploadingText}>
-          <Text variant="bodySmall">Uploading...</Text>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text variant="bodySmall" style={styles.uploadingLabel}>Uploading...</Text>
         </View>
       )}
     </View>
@@ -240,15 +302,20 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    padding: 20,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.md,
   },
   photoContainer: {
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.background,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: spacing.md,
+    borderWidth: 3,
+    borderColor: colors.primary,
   },
   photo: {
     width: '100%',
@@ -269,20 +336,39 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+    height: '100%',
   },
   placeholderText: {
     color: '#999',
-    marginTop: 8,
+    marginTop: spacing.xs,
+    fontSize: 13,
   },
   buttonContainer: {
     width: '100%',
     maxWidth: 300,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
   button: {
-    marginBottom: 8,
+    flex: 1,
+  },
+  changeButton: {
+    borderColor: colors.primary,
+  },
+  deleteButton: {
+    borderColor: '#c62828',
   },
   uploadingText: {
-    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  uploadingLabel: {
+    color: colors.textSecondary,
   },
 });
 

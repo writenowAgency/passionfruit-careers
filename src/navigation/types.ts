@@ -38,8 +38,16 @@ export type AIFeaturesStackParamList = {
 
 export type ProfileStackParamList = {
   ProfileHome: undefined;
+  EditProfile: undefined;
   SkillsManager: undefined;
+  ExperienceManager: undefined;
+  EducationManager: undefined;
+  CertificationsManager: undefined;
+  LanguagesManager: undefined;
+  CareerObjectivesEditor: undefined;
   DocumentsManager: undefined;
+  PreferencesManager: undefined;
+  ProfileStrengthMeter: undefined;
   CareerInsights: undefined;
   Premium: undefined;
   Payment: undefined;

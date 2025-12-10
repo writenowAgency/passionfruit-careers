@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { Job, Applicant } from '../../types';
+import { API_CONFIG } from '../../config/api';
 
 type RootStateLike = {
   auth: {
@@ -10,7 +11,7 @@ type RootStateLike = {
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: 'https://api.passionfruit.careers',
+    baseUrl: API_CONFIG.BASE_URL,
     prepareHeaders: (headers, { getState }) => {
       const token = (getState() as RootStateLike).auth.token;
       if (token) {

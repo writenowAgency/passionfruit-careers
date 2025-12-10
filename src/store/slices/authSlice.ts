@@ -20,9 +20,36 @@ const initialState: AuthState = {
 };
 
 export const bootstrapAuth = createAsyncThunk('auth/bootstrap', async () => {
-  const raw = await AsyncStorage.getItem(AUTH_KEY);
-  if (!raw) return null;
-  return JSON.parse(raw) as Pick<AuthState, 'token' | 'userRole'>;
+  try {
+    const raw = await AsyncStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+
+    const auth = JSON.parse(raw) as Pick<AuthState, 'token' | 'userRole'>;
+
+    // Validate token is not expired (basic check)
+    if (auth.token) {
+      try {
+        const payload = JSON.parse(atob(auth.token.split('.')[1]));
+        const expiryTime = payload.exp * 1000; // Convert to milliseconds
+
+        if (Date.now() >= expiryTime) {
+          // Token expired, clear storage
+          await AsyncStorage.removeItem(AUTH_KEY);
+          return null;
+        }
+      } catch (e) {
+        // Invalid token format, clear it
+        await AsyncStorage.removeItem(AUTH_KEY);
+        return null;
+      }
+    }
+
+    return auth;
+  } catch (error) {
+    // If anything fails, clear storage and return null
+    await AsyncStorage.removeItem(AUTH_KEY);
+    return null;
+  }
 });
 
 const persistAuth = async (state: Pick<AuthState, 'token' | 'userRole'>) => {

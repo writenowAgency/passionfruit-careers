@@ -1,6 +1,6 @@
-import React from 'react';
-import { ScrollView, Share } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { ScrollView, Share, Alert } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Text, Chip, List } from 'react-native-paper';
 import { MatchScoreBadge } from '@/components/common/MatchScoreBadge';
@@ -9,12 +9,47 @@ import { SecondaryButton } from '@/components/common/SecondaryButton';
 import { useAppSelector } from '@/store/hooks';
 import { JobSeekerJobsStackParamList } from '@/navigation/types';
 import { colors } from '@/theme/colors';
+import { jobSeekerApi } from '@/services/jobSeekerApi';
 import * as Linking from 'expo-linking';
 
 const JobDetailsScreen: React.FC = () => {
   const route = useRoute<NativeStackScreenProps<JobSeekerJobsStackParamList, 'JobDetails'>['route']>();
+  const navigation = useNavigation();
   const jobs = useAppSelector((state) => state.jobs.list);
+  const auth = useAppSelector((state) => state.auth);
   const job = jobs.find((j) => j.id === route.params?.jobId) || jobs[0];
+
+  const [applying, setApplying] = useState(false);
+
+  const handleApply = async () => {
+    if (!job || !auth.token) {
+      Alert.alert('Error', 'Please login to apply for jobs');
+      return;
+    }
+
+    setApplying(true);
+    try {
+      await jobSeekerApi.applyForJob(auth.token, parseInt(job.id));
+      Alert.alert(
+        'Success',
+        'Application submitted successfully!',
+        [
+          {
+            text: 'View My Applications',
+            onPress: () => navigation.navigate('Applications' as never),
+          },
+          { text: 'OK' },
+        ]
+      );
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to submit application'
+      );
+    } finally {
+      setApplying(false);
+    }
+  };
 
   const shareJob = async () => {
     if (!job) return;
@@ -37,7 +72,9 @@ const JobDetailsScreen: React.FC = () => {
         {job.company} � {job.location}
       </Text>
       <MatchScoreBadge score={job.matchScore} size="large" />
-      <PrimaryButton onPress={() => {}}>Apply now</PrimaryButton>
+      <PrimaryButton onPress={handleApply} loading={applying}>
+        {applying ? 'Applying...' : 'Apply now'}
+      </PrimaryButton>
       <SecondaryButton onPress={shareJob}>Share role</SecondaryButton>
 
       <List.Section>

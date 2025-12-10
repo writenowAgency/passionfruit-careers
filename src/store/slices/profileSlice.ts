@@ -17,19 +17,28 @@ const initialState: ProfileState = {
 // Async thunks for API calls
 export const fetchProfile = createAsyncThunk(
   'profile/fetchProfile',
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { getState, rejectWithValue, dispatch }) => {
     try {
       const state = getState() as RootState;
       const token = state.auth.token;
 
       if (!token) {
-        throw new Error('No authentication token found');
+        return rejectWithValue('No authentication token found');
       }
 
       const profile = await profileApi.getProfile(token);
       return profile;
     } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch profile');
+      const message = error instanceof Error ? error.message : 'Failed to fetch profile';
+
+      // If token is invalid or expired, clear auth state
+      if (message.includes('Invalid or expired token') || message.includes('Forbidden')) {
+        // Import and dispatch logout action
+        const { logout } = await import('./authSlice');
+        dispatch(logout());
+      }
+
+      return rejectWithValue(message);
     }
   }
 );

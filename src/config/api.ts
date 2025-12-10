@@ -1,10 +1,13 @@
 // API Configuration
 // For development, we'll use localhost. For production, update this to your actual API URL.
 
+// Force development mode for now
+const isDevelopment = true;
+
 export const API_CONFIG = {
   // Use your local IP address or localhost for development
   // If testing on a physical device, replace with your computer's local IP
-  BASE_URL: __DEV__
+  BASE_URL: isDevelopment
     ? 'http://localhost:3000/api'  // Development (use your computer's IP for physical devices)
     : 'https://api.passionfruit.careers',  // Production
 

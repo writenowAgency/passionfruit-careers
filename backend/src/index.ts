@@ -3,6 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import profileRoutes from './routes/profile';
+import employerRoutes from './routes/employer';
+import jobSeekerRoutes from './routes/jobSeeker';
+import jobsRoutes from './routes/jobs';
 import pool from './database/config';
 
 dotenv.config();
@@ -26,6 +29,9 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/employer', employerRoutes);
+app.use('/api/job-seeker', jobSeekerRoutes);
+app.use('/api/jobs', jobsRoutes);
 
 // Test database connection
 pool.query('SELECT NOW()', (err, res) => {

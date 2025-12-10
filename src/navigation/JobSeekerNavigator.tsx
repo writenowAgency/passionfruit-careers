@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import HomeScreen from '@/screens/jobSeeker/dashboard/HomeScreen';
+import HomeScreen from '@/screens/jobSeeker/dashboard/HomeScreenModern';
 import { JobSeekerJobsNavigator } from './JobSeekerJobsNavigator';
 import { ApplicationsNavigator } from './ApplicationsNavigator';
 import { AIFeaturesNavigator } from './AIFeaturesNavigator';

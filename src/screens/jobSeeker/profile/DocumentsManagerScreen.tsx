@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { Card, Text, Button as PaperButton, ActivityIndicator, Chip, Divider, IconButton } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
-import { useAppSelector } from '../../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../../store/hooks';
 import { profileApi, DocumentUpload } from '../../../services/profileApi';
-import { PrimaryButton } from '../../../components/PrimaryButton';
+import { fetchProfile } from '../../../store/slices/profileSlice';
+import { PrimaryButton } from '@/components/common/PrimaryButton';
 
 type DocumentType = 'cv' | 'cover_letter' | 'id_document' | 'certificate' | 'reference' | 'portfolio';
 
@@ -61,10 +62,11 @@ const DOCUMENT_TYPES: { type: DocumentType; label: string; icon: string; descrip
 ];
 
 export function DocumentsManagerScreen() {
+  const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.auth.token);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingType, setUploadingType] = useState<DocumentType | null>(null);
 
   useEffect(() => {
     loadDocuments();
@@ -101,16 +103,41 @@ export function DocumentsManagerScreen() {
         return;
       }
 
-      setUploading(true);
+      const asset = result.assets[0];
+
+      // Check file size (50MB max)
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
+      if (asset.size && asset.size > MAX_FILE_SIZE) {
+        Alert.alert(
+          'File Too Large',
+          `The selected file is ${(asset.size / (1024 * 1024)).toFixed(1)}MB. Please select a file smaller than 50MB.`
+        );
+        return;
+      }
+
+      setUploadingType(type);
+
+      // For web, fetch the file as a blob and create a proper File object
+      let fileToUpload: any;
+
+      if (asset.uri.startsWith('blob:') || asset.uri.startsWith('http')) {
+        // Web platform
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        fileToUpload = new File([blob], asset.name, { type: asset.mimeType || 'application/pdf' });
+      } else {
+        // Native platform
+        fileToUpload = {
+          uri: asset.uri,
+          name: asset.name,
+          type: asset.mimeType || 'application/pdf',
+        };
+      }
 
       // Create upload payload
       const upload: DocumentUpload = {
         documentType: type,
-        file: {
-          uri: result.assets[0].uri,
-          name: result.assets[0].name,
-          type: result.assets[0].mimeType || 'application/pdf',
-        },
+        file: fileToUpload,
         isPrimary: documents.filter(d => d.documentType === type).length === 0, // First document of type is primary
       };
 
@@ -118,11 +145,12 @@ export function DocumentsManagerScreen() {
 
       Alert.alert('Success', 'Document uploaded successfully');
       await loadDocuments();
+      await dispatch(fetchProfile()).unwrap();
     } catch (error: any) {
       console.error('Upload document error:', error);
       Alert.alert('Error', error.message || 'Failed to upload document');
     } finally {
-      setUploading(false);
+      setUploadingType(null);
     }
   };
 
@@ -142,6 +170,7 @@ export function DocumentsManagerScreen() {
               await profileApi.deleteDocument(token, documentId);
               Alert.alert('Success', 'Document deleted successfully');
               await loadDocuments();
+              await dispatch(fetchProfile()).unwrap();
             } catch (error) {
               console.error('Delete document error:', error);
               Alert.alert('Error', 'Failed to delete document');
@@ -258,11 +287,11 @@ export function DocumentsManagerScreen() {
 
               <PrimaryButton
                 onPress={() => handlePickDocument(docType.type)}
-                disabled={uploading}
+                disabled={uploadingType !== null}
                 mode="outlined"
                 style={{ marginTop: 8 }}
               >
-                {uploading ? 'Uploading...' : `Upload ${docType.label}`}
+                {uploadingType === docType.type ? 'Uploading...' : `Upload ${docType.label}`}
               </PrimaryButton>
             </Card.Content>
           </Card>

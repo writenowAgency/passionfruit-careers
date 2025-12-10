@@ -1,16 +1,16 @@
 import React from 'react';
-import { SafeAreaView, View, StyleSheet, Pressable } from 'react-native';
+import { SafeAreaView, View, StyleSheet, Pressable, Image, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { Text } from 'react-native-paper';
+import { Text, Avatar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { JobCard } from '@/components/cards/JobCard';
 import DailyMatchesWidget from '@/screens/jobSeeker/dashboard/DailyMatchesWidget';
-import { mockJobs } from '@/data/mockJobs';
 import { CacheService } from '@/services/cache';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setJobs, setStatus, toggleSavedJob } from '@/store/slices/jobsSlice';
+import { fetchProfile } from '@/store/slices/profileSlice';
 import { useGetJobsQuery } from '@/store/api/apiSlice';
 import type { Job } from '@/types';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -19,6 +19,7 @@ import { colors, spacing, borderRadius, shadows } from '@/theme';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { SlideIn } from '@/components/animations/SlideIn';
 import { FadeIn } from '@/components/animations/FadeIn';
+import { jobSeekerApi, DashboardStats } from '@/services/jobSeekerApi';
 
 const CACHE_KEY = 'jobs_cache';
 
@@ -29,7 +30,10 @@ const HomeScreen: React.FC = () => {
   const jobs = useAppSelector((state) => state.jobs.list);
   const status = useAppSelector((state) => state.jobs.status);
   const profile = useAppSelector((state) => state.profile);
+  const token = useAppSelector((state) => state.auth.token);
   const { data, isFetching, refetch } = useGetJobsQuery();
+  const [stats, setStats] = React.useState<DashboardStats | null>(null);
+  const [applyingJobId, setApplyingJobId] = React.useState<string | null>(null);
 
   // Get current hour for greeting
   const getGreeting = () => {
@@ -44,8 +48,6 @@ const HomeScreen: React.FC = () => {
       const cached = await CacheService.get<Job[]>(CACHE_KEY);
       if (cached?.length) {
         dispatch(setJobs(cached));
-      } else {
-        dispatch(setJobs(mockJobs));
       }
     })();
   }, [dispatch]);
@@ -57,6 +59,70 @@ const HomeScreen: React.FC = () => {
     }
   }, [data, dispatch]);
 
+  React.useEffect(() => {
+    if (token) {
+      fetchStats();
+      dispatch(fetchProfile());
+    }
+  }, [token, dispatch]);
+
+  const fetchStats = async () => {
+    if (!token) return;
+    try {
+      const statsData = await jobSeekerApi.getDashboardStats(token);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  const handleQuickApply = async (job: Job) => {
+    if (!token) {
+      Alert.alert('Authentication Required', 'Please login to apply for jobs');
+      return;
+    }
+
+    if (applyingJobId) {
+      return; // Prevent multiple simultaneous applications
+    }
+
+    track('job_quick_apply', { jobId: job.id });
+    setApplyingJobId(job.id);
+
+    try {
+      await jobSeekerApi.applyForJob(token, parseInt(job.id));
+
+      // Show success message with options
+      Alert.alert(
+        'Application Submitted',
+        `Your application for ${job.title} at ${job.company} has been submitted successfully!`,
+        [
+          {
+            text: 'View Applications',
+            onPress: () => navigation.navigate('Applications' as never),
+          },
+          {
+            text: 'OK',
+            style: 'default',
+          },
+        ]
+      );
+
+      // Refresh stats to update application count
+      await fetchStats();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit application';
+
+      Alert.alert(
+        'Application Failed',
+        errorMessage,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setApplyingJobId(null);
+    }
+  };
+
   const onRefresh = async () => {
     dispatch(setStatus('loading'));
     await refetch();
@@ -65,45 +131,64 @@ const HomeScreen: React.FC = () => {
   const renderItem = ({ item }: { item: Job }) => (
     <JobCard
       job={item}
-      onApply={() => {
-        track('job_quick_apply', { jobId: item.id });
-        navigation.navigate('Jobs' as never, {
-          screen: 'JobDetails',
-          params: { jobId: item.id },
-        } as never);
-      }}
+      onApply={() => handleQuickApply(item)}
       onSave={() => dispatch(toggleSavedJob(item.id))}
+      isApplying={applyingJobId === item.id}
     />
   );
 
-  const WelcomeHeader = () => (
-    <View style={styles.welcomeContainer}>
-      <FadeIn delay={0}>
-        <View style={styles.greetingSection}>
-          <View style={styles.greetingTextContainer}>
-            <Text variant="headlineMedium" style={styles.greeting}>
-              {getGreeting()}
-            </Text>
-            <Text variant="displaySmall" style={styles.userName}>
-              {profile.personalInfo?.name || 'Job Seeker'}
-            </Text>
-          </View>
-          <Pressable
-            style={styles.notificationButton}
-            onPress={() => {
-              // Navigate to notifications
-              track('notification_button_pressed');
-            }}
-          >
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>3</Text>
-            </View>
-            <Ionicons name="notifications" size={28} color={colors.text} />
-          </Pressable>
-        </View>
-      </FadeIn>
+  const WelcomeHeader = () => {
+    const userName = profile.data?.user?.fullName || profile.data?.user?.firstName || 'Job Seeker';
+    const userHeadline = profile.data?.profile?.headline;
+    const profilePhotoUrl = profile.data?.profile?.profilePhotoUrl;
+    const userInitials = profile.data?.user?.firstName?.charAt(0) + (profile.data?.user?.lastName?.charAt(0) || '');
 
-      {/* Stats Cards */}
+    return (
+      <View style={styles.welcomeContainer}>
+        <FadeIn delay={0}>
+          <View style={styles.greetingSection}>
+            {/* Profile Photo */}
+            {profilePhotoUrl ? (
+              <Avatar.Image
+                size={64}
+                source={{ uri: profilePhotoUrl }}
+                style={styles.profilePhoto}
+              />
+            ) : (
+              <Avatar.Text
+                size={64}
+                label={userInitials || 'JS'}
+                style={styles.profilePhoto}
+              />
+            )}
+
+            <View style={styles.greetingTextContainer}>
+              <Text variant="headlineMedium" style={styles.greeting}>
+                {getGreeting()}, {profile.data?.user?.firstName || 'there'}!
+              </Text>
+              <Text variant="displaySmall" style={styles.userName}>
+                {userName}
+              </Text>
+              {userHeadline && (
+                <Text variant="bodyMedium" style={styles.userHeadline}>
+                  {userHeadline}
+                </Text>
+              )}
+            </View>
+
+            <Pressable
+              style={styles.notificationButton}
+              onPress={() => {
+                // Navigate to notifications
+                track('notification_button_pressed');
+              }}
+            >
+              <Ionicons name="notifications" size={28} color={colors.text} />
+            </Pressable>
+          </View>
+        </FadeIn>
+
+        {/* Stats Cards */}
       <FadeIn delay={100}>
         <View style={styles.statsContainer}>
           <LinearGradient
@@ -129,7 +214,7 @@ const HomeScreen: React.FC = () => {
           >
             <Ionicons name="send" size={24} color={colors.background} />
             <Text variant="headlineSmall" style={[styles.statValue, { color: colors.background }]}>
-              12
+              {stats?.totalApplications || 0}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: colors.background }]}>
               Applications
@@ -144,7 +229,7 @@ const HomeScreen: React.FC = () => {
           >
             <Ionicons name="chatbubbles" size={24} color={colors.background} />
             <Text variant="headlineSmall" style={[styles.statValue, { color: colors.background }]}>
-              4
+              {stats?.interviews || 0}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: colors.background }]}>
               Interviews
@@ -167,8 +252,9 @@ const HomeScreen: React.FC = () => {
           <Ionicons name="sparkles" size={24} color={colors.secondary} />
         </View>
       </FadeIn>
-    </View>
-  );
+      </View>
+    );
+  };
 
   const ListHeader = () => (
     <>
@@ -236,6 +322,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  profilePhoto: {
+    ...shadows.sm,
   },
   greetingTextContainer: {
     flex: 1,
@@ -249,6 +339,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
     fontSize: 32,
+  },
+  userHeadline: {
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    fontWeight: '500',
   },
   notificationButton: {
     position: 'relative',

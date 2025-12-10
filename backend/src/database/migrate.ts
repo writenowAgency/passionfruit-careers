@@ -1,5 +1,6 @@
 import pool from './config';
 import bcrypt from 'bcrypt';
+import { createSavedJobsTable } from './add-saved-jobs';
 
 async function migrate() {
   const client = await pool.connect();
@@ -32,6 +33,9 @@ async function migrate() {
       );
     `);
     console.log('✓ Sessions table created');
+
+    // Create saved_jobs table
+    await createSavedJobsTable();
 
     // Insert demo credentials
     const demoEmail = 'demo@writenow.com';

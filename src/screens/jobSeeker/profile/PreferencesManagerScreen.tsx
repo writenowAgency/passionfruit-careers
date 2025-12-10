@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Chip, ActivityIndicator, Switch, SegmentedButtons, TextInput, Button as PaperButton } from 'react-native-paper';
-import { useAppSelector } from '../../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../../store/hooks';
 import { profileApi } from '../../../services/profileApi';
-import { PrimaryButton } from '../../../components/PrimaryButton';
+import { fetchProfile } from '../../../store/slices/profileSlice';
+import { PrimaryButton } from '@/components/common/PrimaryButton';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface JobCategory {
@@ -12,7 +13,28 @@ interface JobCategory {
   description: string | null;
 }
 
+const getImmediateDate = () => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+};
+
+const getTwoWeeksDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 14);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+const getOneMonthDate = () => {
+  const date = new Date();
+  date.setMonth(date.getMonth() + 1);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
 export function PreferencesManagerScreen() {
+  const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.auth.token);
   const profile = useAppSelector((state) => state.profile.data);
 
@@ -89,6 +111,7 @@ export function PreferencesManagerScreen() {
     try {
       setSaving(true);
       await profileApi.updatePreferredCategories(token, selectedCategories);
+      await dispatch(fetchProfile()).unwrap();
       Alert.alert('Success', 'Job categories updated successfully');
     } catch (error: any) {
       console.error('Save job categories error:', error);
@@ -110,10 +133,36 @@ export function PreferencesManagerScreen() {
         preferredWorkType: workType || null,
         availabilityStartDate: availabilityDate ? availabilityDate.toISOString().split('T')[0] : null,
       });
+      await dispatch(fetchProfile()).unwrap();
       Alert.alert('Success', 'Work preferences updated successfully');
     } catch (error: any) {
       console.error('Save work preferences error:', error);
       Alert.alert('Error', error.message || 'Failed to save work preferences');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvailabilityChange = async (date: Date | null) => {
+    if (!token) return;
+
+    const originalDate = availabilityDate;
+    setAvailabilityDate(date); // Optimistic update
+
+    try {
+      setSaving(true);
+      await profileApi.updateWorkPreferences(token, {
+        desiredSalaryMin: profile?.profile.desiredSalaryMin,
+        desiredSalaryMax: profile?.profile.desiredSalaryMax,
+        salaryCurrency: profile?.profile.salaryCurrency,
+        preferredWorkType: profile?.profile.preferredWorkType,
+        availabilityStartDate: date ? date.toISOString().split('T')[0] : null,
+      });
+      await dispatch(fetchProfile()).unwrap();
+    } catch (error: any) {
+      console.error('Update availability error:', error);
+      setAvailabilityDate(originalDate); // Revert on error
+      Alert.alert('Error', 'Failed to update availability.');
     } finally {
       setSaving(false);
     }
@@ -131,6 +180,7 @@ export function PreferencesManagerScreen() {
         applicationUpdatesEnabled: applicationUpdates,
         marketingEmailsEnabled: marketingEmails,
       });
+      await dispatch(fetchProfile()).unwrap();
       Alert.alert('Success', 'Notification preferences updated successfully');
     } catch (error: any) {
       console.error('Save notification preferences error:', error);
@@ -256,32 +306,59 @@ export function PreferencesManagerScreen() {
       <Card style={styles.card}>
         <Card.Title title="Availability" subtitle="When can you start a new role?" />
         <Card.Content>
+          <View style={styles.chipsContainer}>
+            <Chip
+              icon="calendar-check"
+              onPress={() => handleAvailabilityChange(getImmediateDate())}
+              style={styles.chip}
+              selected={availabilityDate?.toDateString() === getImmediateDate().toDateString()}
+            >
+              Immediately
+            </Chip>
+            <Chip
+              icon="calendar-arrow-right"
+              onPress={() => handleAvailabilityChange(getTwoWeeksDate())}
+              style={styles.chip}
+              selected={availabilityDate?.toDateString() === getTwoWeeksDate().toDateString()}
+            >
+              2 Weeks
+            </Chip>
+            <Chip
+              icon="calendar-month"
+              onPress={() => handleAvailabilityChange(getOneMonthDate())}
+              style={styles.chip}
+              selected={availabilityDate?.toDateString() === getOneMonthDate().toDateString()}
+            >
+              1 Month
+            </Chip>
+          </View>
+          
           <PaperButton
             mode="outlined"
             onPress={() => setShowDatePicker(true)}
-            style={{ marginBottom: 16 }}
+            style={{ marginTop: 16, marginBottom: 8 }}
+            icon="calendar-edit"
           >
             {availabilityDate
-              ? `Available from: ${availabilityDate.toLocaleDateString()}`
-              : 'Set Availability Date'}
+              ? `Available: ${availabilityDate.toLocaleDateString()}`
+              : 'Or select a specific date'}
           </PaperButton>
 
           {showDatePicker && (
             <DateTimePicker
               value={availabilityDate || new Date()}
               mode="date"
+              display="default"
               onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
                 if (selectedDate) {
-                  setAvailabilityDate(selectedDate);
+                  handleAvailabilityChange(selectedDate);
                 }
               }}
             />
           )}
 
-          <PrimaryButton onPress={handleSaveWorkPreferences} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Availability'}
-          </PrimaryButton>
+          {saving && <ActivityIndicator animating={true} style={{ marginTop: 8 }} />}
         </Card.Content>
       </Card>
 
@@ -320,7 +397,7 @@ export function PreferencesManagerScreen() {
             style={{ marginTop: 16 }}
           >
             {saving ? 'Saving...' : 'Save Notification Settings'}
-          </PrimaryButton>
+          </PrimaryButton>.
         </Card.Content>
       </Card>
 
@@ -352,6 +429,10 @@ const styles = StyleSheet.create({
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  chip: {
+    marginRight: 8,
+    marginBottom: 8,
   },
   switchRow: {
     flexDirection: 'row',

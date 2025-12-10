@@ -71,7 +71,7 @@ export const uploadProfilePhoto = multer({
 export const uploadDocument = multer({
   storage: USE_LOCAL_STORAGE ? localStorage : memoryStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
+    fileSize: 50 * 1024 * 1024, // 50MB max
   },
   fileFilter: documentFileFilter,
 }).single('document');

@@ -184,6 +184,28 @@ router.post(
   }
 );
 
+// Update profile photo URL
+router.put('/photo-url', authenticateToken, [
+    body('photoUrl').isURL().withMessage('Invalid photo URL'),
+], async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+        const userId = req.user.id;
+        const { photoUrl } = req.body;
+        await profileService.updateProfilePhoto(userId, photoUrl);
+        return res.json({ message: 'Profile photo updated successfully', photoUrl });
+    } catch (error) {
+        console.error('Update photo URL error:', error);
+        return res.status(500).json({
+            message: error instanceof Error ? error.message : 'Failed to update photo URL',
+        });
+    }
+});
+
 // Upload profile photo
 router.post('/photo', authenticateToken, uploadProfilePhoto, async (req: AuthRequest, res: Response) => {
   try {

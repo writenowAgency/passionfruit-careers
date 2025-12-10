@@ -1,21 +1,57 @@
 import React from 'react';
-import { ScrollView, View, StyleSheet } from 'react-native';
+import { ScrollView, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text, Card, Button } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { StatCard } from '@/components/cards/StatCard';
-import { mockApplicants } from '@/data/mockApplicants';
-import { useAppDispatch } from '@/store/hooks';
+import { employerApi, DashboardStats, RecentApplicant } from '@/services/employerApi';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 import { FadeIn } from '@/components/animations/FadeIn';
 
 const EmployerHome: React.FC = () => {
   const dispatch = useAppDispatch();
+  const token = useAppSelector((state) => state.auth.token);
+
+  const [loading, setLoading] = React.useState(true);
+  const [stats, setStats] = React.useState<DashboardStats | null>(null);
+  const [applicants, setApplicants] = React.useState<RecentApplicant[]>([]);
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, [token]);
+
+  const fetchDashboardData = async () => {
+    if (!token) return;
+
+    try {
+      setLoading(true);
+      const [statsData, applicantsData] = await Promise.all([
+        employerApi.getDashboardStats(token),
+        employerApi.getRecentApplicants(token, 3),
+      ]);
+
+      setStats(statsData);
+      setApplicants(applicantsData.applicants);
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     dispatch(logout());
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -45,14 +81,14 @@ const EmployerHome: React.FC = () => {
           >
             <Ionicons name="document-text" size={32} color={colors.text} />
             <Text variant="displaySmall" style={styles.statValue}>
-              12
+              {stats?.activeJobs || 0}
             </Text>
             <Text variant="bodyMedium" style={styles.statLabel}>
               Active Jobs
             </Text>
             <View style={styles.trendBadge}>
               <Ionicons name="trending-up" size={12} color={colors.success} />
-              <Text style={styles.trendText}>+3%</Text>
+              <Text style={styles.trendText}>+{stats?.jobGrowth || 0}%</Text>
             </View>
           </LinearGradient>
 
@@ -64,14 +100,20 @@ const EmployerHome: React.FC = () => {
           >
             <Ionicons name="people" size={32} color={colors.background} />
             <Text variant="displaySmall" style={[styles.statValue, { color: colors.background }]}>
-              248
+              {stats?.totalApplicants || 0}
             </Text>
             <Text variant="bodyMedium" style={[styles.statLabel, { color: colors.background }]}>
               Total Applicants
             </Text>
             <View style={[styles.trendBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              <Ionicons name="trending-up" size={12} color={colors.background} />
-              <Text style={[styles.trendText, { color: colors.background }]}>+12</Text>
+              <Ionicons
+                name={stats?.applicantGrowth && stats.applicantGrowth >= 0 ? "trending-up" : "trending-down"}
+                size={12}
+                color={colors.background}
+              />
+              <Text style={[styles.trendText, { color: colors.background }]}>
+                {stats?.applicantGrowth >= 0 ? '+' : ''}{stats?.applicantGrowth || 0}
+              </Text>
             </View>
           </LinearGradient>
         </View>
@@ -88,24 +130,30 @@ const EmployerHome: React.FC = () => {
               <Ionicons name="time" size={20} color={colors.textSecondary} />
             </View>
             <View style={styles.applicantsList}>
-              {mockApplicants.map((applicant, index) => (
-                <View key={applicant.id} style={styles.applicantItem}>
-                  <View style={styles.applicantAvatar}>
-                    <Text style={styles.applicantInitials}>
-                      {applicant.name.charAt(0)}
-                    </Text>
+              {applicants.length > 0 ? (
+                applicants.map((applicant) => (
+                  <View key={applicant.id} style={styles.applicantItem}>
+                    <View style={styles.applicantAvatar}>
+                      <Text style={styles.applicantInitials}>
+                        {applicant.name.charAt(0)}
+                      </Text>
+                    </View>
+                    <View style={styles.applicantInfo}>
+                      <Text variant="titleMedium" style={styles.applicantName}>
+                        {applicant.name}
+                      </Text>
+                      <Text variant="bodySmall" style={styles.applicantRole}>
+                        {applicant.role}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                   </View>
-                  <View style={styles.applicantInfo}>
-                    <Text variant="titleMedium" style={styles.applicantName}>
-                      {applicant.name}
-                    </Text>
-                    <Text variant="bodySmall" style={styles.applicantRole}>
-                      {applicant.role}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                </View>
-              ))}
+                ))
+              ) : (
+                <Text style={{ textAlign: 'center', color: colors.textSecondary, padding: spacing.lg }}>
+                  No recent applicants
+                </Text>
+              )}
             </View>
           </Card.Content>
         </Card>
