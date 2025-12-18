@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { ActivityIndicator, Text } from 'react-native-paper';
 import { useAppSelector } from '@/store/hooks';
-import { jobSeekerApi } from '@/services/jobSeekerApi';
+import { jobSeekerApi, Application } from '@/services/jobSeekerApi';
 import { JobCard } from '@/components/cards/JobCard';
 import { EmptyState } from '@/components/common/EmptyState';
 import { colors, spacing } from '@/theme';
-import { Job, Application } from '@/types';
+import { Job } from '@/types';
 
 // We need to fetch the full job details for the applied jobs.
 // This is a mock for now, in a real app the API should probably return full job objects.

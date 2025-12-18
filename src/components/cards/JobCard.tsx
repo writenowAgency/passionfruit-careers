@@ -244,7 +244,7 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
                     disabled={isApplying}
                   >
                     <LinearGradient
-                      colors={(isApplying ? [colors.surfaceVariant, colors.surfaceVariant] : colors.gradientPrimary) as [string, string, ...string[]]}
+                      colors={isApplying ? [colors.surfaceVariant, colors.surfaceVariant] : colors.gradientPrimary}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.applyButton, isApplying && { opacity: 0.7 }]}

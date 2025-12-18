@@ -71,7 +71,7 @@ const JobDetailsScreen: React.FC = () => {
       <Text variant="titleMedium" style={{ color: colors.textSecondary }}>
         {job.company} � {job.location}
       </Text>
-      <MatchScoreBadge score={job.matchScore} size="large" />
+      <MatchScoreBadge score={job.matchScore || 0} size="large" />
       <PrimaryButton onPress={handleApply} loading={applying}>
         {applying ? 'Applying...' : 'Apply now'}
       </PrimaryButton>
@@ -79,7 +79,7 @@ const JobDetailsScreen: React.FC = () => {
 
       <List.Section>
         <List.Accordion title="Highlights" left={(props) => <List.Icon {...props} icon="star" />}>
-          {job.tags.map((tag) => (
+          {job.tags?.map((tag) => (
             <Chip key={tag} style={{ marginBottom: 8 }}>
               {tag}
             </Chip>

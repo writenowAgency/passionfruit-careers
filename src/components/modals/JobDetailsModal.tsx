@@ -1,5 +1,4 @@
-import React from 'react';
-import { View, ScrollView, StyleSheet, Modal, Pressable, Linking } from 'react-native';
+import { View, ScrollView, StyleSheet, Modal, Pressable, Linking, ColorValue } from 'react-native';
 import { Text, Chip, Divider } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';

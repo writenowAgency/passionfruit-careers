@@ -1,3 +1,5 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
+
 export type RootStackParamList = {
   Auth: undefined;
   JobSeeker: undefined;
@@ -54,10 +56,42 @@ export type ProfileStackParamList = {
   SubscriptionStatus: undefined;
 };
 
+export type EmployerJobsStackParamList = {
+  ManageJobs: { openCreateModal?: boolean } | undefined;
+  PostJobWizard: undefined;
+  JobBasicInfo: undefined;
+  EmployerJobDetails: { jobId: string };
+  JobRequirements: undefined;
+  JobSettings: undefined;
+  BulkImport: undefined;
+  EmployerJobAnalytics: undefined;
+};
+
+export type EmployerApplicantsStackParamList = {
+  Applicants: { filter?: string } | undefined;
+  ApplicantPipeline: undefined;
+  ApplicantProfile: { applicantId: number };
+  ApplicantFilters: undefined;
+  BulkActions: undefined;
+  ExportApplicants: undefined;
+};
+
+export type EmployerAnalyticsStackParamList = {
+  Analytics: undefined;
+  JobPerformance: { jobId: string };
+  RecruitmentFunnel: undefined;
+};
+
+export type EmployerCreditsStackParamList = {
+  Credits: undefined;
+  PurchaseCredits: undefined;
+  UsageHistory: undefined;
+};
+
 export type EmployerTabParamList = {
   EmployerHome: undefined;
-  EmployerJobs: undefined;
-  EmployerApplicants: undefined;
-  EmployerAnalytics: undefined;
-  EmployerCredits: undefined;
+  EmployerJobs: NavigatorScreenParams<EmployerJobsStackParamList>;
+  EmployerApplicants: NavigatorScreenParams<EmployerApplicantsStackParamList>;
+  EmployerAnalytics: NavigatorScreenParams<EmployerAnalyticsStackParamList>;
+  EmployerCredits: NavigatorScreenParams<EmployerCreditsStackParamList>;
 };

@@ -1,29 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, Alert, Dimensions, Pressable } from 'react-native';
 import {
   Text,
   Card,
-  Button,
   FAB,
   Portal,
   Modal,
   TextInput,
   Chip,
   ActivityIndicator,
+  Searchbar,
 } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import { employerApi, Job } from '@/services/employerApi';
 import { useAppSelector } from '@/store/hooks';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { FadeIn } from '@/components/animations/FadeIn';
+import { ScaleUp } from '@/components/animations/ScaleUp';
+import { SlideIn } from '@/components/animations/SlideIn';
+import { EmployerJobCard } from '@/components/cards/EmployerJobCard';
+import { QuickActionButton } from '@/components/common/QuickActionButton';
+import { EmployerJobsStackParamList } from '@/navigation/types';
+
+const { width } = Dimensions.get('window');
+const isTablet = width >= 768;
+
+type JobStatus = 'all' | 'published' | 'draft' | 'closed';
+
+type ManageJobsScreenRouteProp = RouteProp<EmployerJobsStackParamList, 'ManageJobs'>;
 
 const ManageJobsScreen: React.FC = () => {
+  const route = useRoute<ManageJobsScreenRouteProp>();
   const token = useAppSelector((state) => state.auth.token);
 
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<JobStatus>('all');
 
   // Form state
   const [title, setTitle] = useState('');
@@ -40,6 +59,16 @@ const ManageJobsScreen: React.FC = () => {
     fetchJobs();
   }, [token]);
 
+  useEffect(() => {
+    if (route.params?.openCreateModal) {
+      openCreateModal();
+    }
+  }, [route.params?.openCreateModal]);
+
+  useEffect(() => {
+    filterJobs();
+  }, [jobs, searchQuery, statusFilter]);
+
   const fetchJobs = async () => {
     if (!token) return;
 
@@ -53,6 +82,28 @@ const ManageJobsScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterJobs = () => {
+    let filtered = jobs;
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((job) => job.status === statusFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (job) =>
+          job.title.toLowerCase().includes(query) ||
+          (job.location && job.location.toLowerCase().includes(query)) ||
+          (job.job_type && job.job_type.toLowerCase().includes(query))
+      );
+    }
+
+    setFilteredJobs(filtered);
   };
 
   const onRefresh = async () => {
@@ -125,7 +176,7 @@ const ManageJobsScreen: React.FC = () => {
 
       setModalVisible(false);
       resetForm();
-      await fetchJobs(); // Refresh the list
+      await fetchJobs();
     } catch (error) {
       console.error('Failed to save job:', error);
       Alert.alert('Error', 'Failed to save job. Please try again.');
@@ -160,30 +211,25 @@ const ManageJobsScreen: React.FC = () => {
     );
   };
 
-  const formatSalaryValue = (value: string) => {
-    const num = parseInt(value);
-    if (num >= 1000000) {
-      const millions = num / 1000000;
-      return millions % 1 === 0 ? `${millions}M` : `${millions.toFixed(1)}M`;
-    } else {
-      const thousands = num / 1000;
-      return thousands % 1 === 0 ? `${thousands}k` : `${thousands.toFixed(0)}k`;
-    }
+  const getJobStats = () => {
+    const total = jobs.length;
+    const published = jobs.filter((j) => j.status === 'published').length;
+    const draft = jobs.filter((j) => j.status === 'draft').length;
+    const totalViews = jobs.reduce((sum, j) => sum + (j.views_count || 0), 0);
+    const totalApplications = jobs.reduce((sum, j) => sum + (j.applications_count || 0), 0);
+
+    return { total, published, draft, totalViews, totalApplications };
   };
 
-  const formatSalary = (min: string | null, max: string | null, currency: string | null) => {
-    if (!min && !max) return 'Salary not specified';
-    const symbol = (currency || 'ZAR') === 'ZAR' ? 'R' : currency;
-    if (min && max) return `${symbol}${formatSalaryValue(min)} - ${symbol}${formatSalaryValue(max)}`;
-    if (min) return `From ${symbol}${formatSalaryValue(min)}`;
-    if (max) return `Up to ${symbol}${formatSalaryValue(max)}`;
-    return '';
-  };
+  const stats = getJobStats();
 
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text variant="bodyLarge" style={styles.loadingText}>
+          Loading your jobs...
+        </Text>
       </View>
     );
   }
@@ -193,130 +239,180 @@ const ManageJobsScreen: React.FC = () => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text variant="headlineMedium" style={styles.title}>
-            Manage Jobs
-          </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            {jobs.length} {jobs.length === 1 ? 'job' : 'jobs'} posted
-          </Text>
+        {/* Hero Section */}
+        <FadeIn delay={0}>
+          <LinearGradient
+            colors={['#FFF9E6', colors.background]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroContent}>
+              <View>
+                <Text variant="displaySmall" style={styles.heroTitle}>
+                  Manage Jobs
+                </Text>
+                <Text variant="bodyLarge" style={styles.heroSubtitle}>
+                  {stats.total} active {stats.total === 1 ? 'position' : 'positions'}
+                </Text>
+              </View>
+              <View style={styles.heroIcon}>
+                <Ionicons name="briefcase" size={36} color={colors.primary} />
+              </View>
+            </View>
+          </LinearGradient>
+        </FadeIn>
+
+        {/* Quick Stats */}
+        <View style={styles.quickStatsContainer}>
+          <View style={[styles.quickStatsGrid, isTablet && styles.quickStatsGridTablet]}>
+            <ScaleUp delay={50}>
+              <View style={styles.quickStatCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: `${colors.success}15` }]}>
+                  <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+                </View>
+                <View>
+                  <Text variant="headlineMedium" style={styles.quickStatValue}>
+                    {stats.published}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.quickStatLabel}>
+                    Published
+                  </Text>
+                </View>
+              </View>
+            </ScaleUp>
+
+            <ScaleUp delay={100}>
+              <View style={styles.quickStatCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: `${colors.warning}15` }]}>
+                  <Ionicons name="document-text" size={24} color={colors.warning} />
+                </View>
+                <View>
+                  <Text variant="headlineMedium" style={styles.quickStatValue}>
+                    {stats.draft}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.quickStatLabel}>
+                    Drafts
+                  </Text>
+                </View>
+              </View>
+            </ScaleUp>
+
+            <ScaleUp delay={150}>
+              <View style={styles.quickStatCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: `${colors.info}15` }]}>
+                  <Ionicons name="eye" size={24} color={colors.info} />
+                </View>
+                <View>
+                  <Text variant="headlineMedium" style={styles.quickStatValue}>
+                    {stats.totalViews}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.quickStatLabel}>
+                    Total Views
+                  </Text>
+                </View>
+              </View>
+            </ScaleUp>
+
+            <ScaleUp delay={200}>
+              <View style={styles.quickStatCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: `${colors.secondary}15` }]}>
+                  <Ionicons name="people" size={24} color={colors.secondary} />
+                </View>
+                <View>
+                  <Text variant="headlineMedium" style={styles.quickStatValue}>
+                    {stats.totalApplications}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.quickStatLabel}>
+                    Applications
+                  </Text>
+                </View>
+              </View>
+            </ScaleUp>
+          </View>
         </View>
 
-        {jobs.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Card.Content style={styles.emptyContent}>
-              <Ionicons name="briefcase-outline" size={64} color={colors.textSecondary} />
-              <Text variant="titleLarge" style={styles.emptyTitle}>
-                No jobs yet
-              </Text>
-              <Text variant="bodyMedium" style={styles.emptyText}>
-                Create your first job posting to start receiving applications
-              </Text>
-              <Button
-                mode="contained"
-                onPress={openCreateModal}
-                style={styles.emptyButton}
-                icon="plus"
-              >
-                Create First Job
-              </Button>
+        {/* Search and Filter */}
+        <FadeIn delay={100}>
+          <Card style={styles.filterCard}>
+            <Card.Content>
+              <Searchbar
+                placeholder="Search jobs..."
+                onChangeText={setSearchQuery}
+                value={searchQuery}
+                style={styles.searchbar}
+                iconColor={colors.primary}
+              />
+
+              <View style={styles.filterChipsContainer}>
+                <Text variant="labelMedium" style={styles.filterLabel}>
+                  Filter by status:
+                </Text>
+                <View style={styles.filterChips}>
+                  {(['all', 'published', 'draft', 'closed'] as JobStatus[]).map((status) => (
+                    <Chip
+                      key={status}
+                      selected={statusFilter === status}
+                      onPress={() => setStatusFilter(status)}
+                      style={[
+                        styles.filterChip,
+                        statusFilter === status && styles.filterChipSelected,
+                      ]}
+                      textStyle={styles.filterChipText}
+                    >
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Chip>
+                  ))}
+                </View>
+              </View>
             </Card.Content>
           </Card>
+        </FadeIn>
+
+        {/* Jobs List or Empty State */}
+        {filteredJobs.length === 0 ? (
+          <FadeIn delay={200}>
+            <Card style={styles.emptyCard}>
+              <Card.Content style={styles.emptyContent}>
+                <LinearGradient
+                  colors={[colors.primaryLight, colors.secondaryLight]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.emptyIconContainer}
+                >
+                  <Ionicons name="briefcase-outline" size={48} color={colors.text} />
+                </LinearGradient>
+                <Text variant="titleLarge" style={styles.emptyTitle}>
+                  {searchQuery || statusFilter !== 'all' ? 'No jobs found' : 'No jobs yet'}
+                </Text>
+                <Text variant="bodyMedium" style={styles.emptyText}>
+                  {searchQuery || statusFilter !== 'all'
+                    ? 'Try adjusting your search or filters'
+                    : 'Create your first job posting to start receiving applications'}
+                </Text>
+                {!searchQuery && statusFilter === 'all' && (
+                  <Pressable style={styles.emptyButton} onPress={openCreateModal}>
+                    <Ionicons name="add-circle" size={20} color={colors.background} />
+                    <Text style={styles.emptyButtonText}>Create First Job</Text>
+                  </Pressable>
+                )}
+              </Card.Content>
+            </Card>
+          </FadeIn>
         ) : (
-          <View style={styles.jobsList}>
-            {jobs.map((job) => (
-              <Card key={job.id} style={styles.jobCard}>
-                <Card.Content>
-                  <View style={styles.jobHeader}>
-                    <View style={styles.jobTitleContainer}>
-                      <Text variant="titleLarge" style={styles.jobTitle}>
-                        {job.title}
-                      </Text>
-                      <Chip
-                        mode="flat"
-                        style={[
-                          styles.statusChip,
-                          job.status === 'published' ? styles.publishedChip : styles.draftChip,
-                        ]}
-                        textStyle={styles.chipText}
-                      >
-                        {job.status}
-                      </Chip>
-                    </View>
-                  </View>
-
-                  <View style={styles.jobDetails}>
-                    {job.location && (
-                      <View style={styles.detailRow}>
-                        <Ionicons name="location" size={16} color={colors.textSecondary} />
-                        <Text variant="bodyMedium" style={styles.detailText}>
-                          {job.location}
-                        </Text>
-                      </View>
-                    )}
-
-                    {job.job_type && (
-                      <View style={styles.detailRow}>
-                        <Ionicons name="time" size={16} color={colors.textSecondary} />
-                        <Text variant="bodyMedium" style={styles.detailText}>
-                          {job.job_type}
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={styles.detailRow}>
-                      <Ionicons name="cash" size={16} color={colors.textSecondary} />
-                      <Text variant="bodyMedium" style={styles.detailText}>
-                        {formatSalary(job.salary_min, job.salary_max, job.salary_currency)}
-                      </Text>
-                    </View>
-
-                    {job.experience_level && (
-                      <View style={styles.detailRow}>
-                        <Ionicons name="school" size={16} color={colors.textSecondary} />
-                        <Text variant="bodyMedium" style={styles.detailText}>
-                          {job.experience_level} level
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={styles.statsRow}>
-                    <View style={styles.stat}>
-                      <Ionicons name="eye" size={16} color={colors.textSecondary} />
-                      <Text variant="bodySmall" style={styles.statText}>
-                        {job.views_count} views
-                      </Text>
-                    </View>
-                    <View style={styles.stat}>
-                      <Ionicons name="people" size={16} color={colors.textSecondary} />
-                      <Text variant="bodySmall" style={styles.statText}>
-                        {job.applications_count} applications
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.actions}>
-                    <Button
-                      mode="outlined"
-                      onPress={() => openEditModal(job)}
-                      style={styles.actionButton}
-                      icon="pencil"
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      mode="text"
-                      onPress={() => handleDelete(job.id, job.title)}
-                      textColor={colors.error}
-                      icon="delete"
-                    >
-                      Delete
-                    </Button>
-                  </View>
-                </Card.Content>
-              </Card>
+          <View style={[styles.jobsGrid, isTablet && styles.jobsGridTablet]}>
+            {filteredJobs.map((job, index) => (
+              <SlideIn key={job.id} delay={index * 50}>
+                <EmployerJobCard
+                  job={job}
+                  onPress={() => console.log('View job details', job.id)}
+                  onEdit={() => openEditModal(job)}
+                  onDelete={() => handleDelete(job.id, job.title)}
+                  onViewApplicants={() => console.log('View applicants', job.id)}
+                />
+              </SlideIn>
             ))}
           </View>
         )}
@@ -326,7 +422,7 @@ const ManageJobsScreen: React.FC = () => {
         icon="plus"
         style={styles.fab}
         onPress={openCreateModal}
-        label="Create Job"
+        label={isTablet ? 'Create Job' : undefined}
         color={colors.background}
       />
 
@@ -336,7 +432,7 @@ const ManageJobsScreen: React.FC = () => {
           onDismiss={() => setModalVisible(false)}
           contentContainerStyle={styles.modal}
         >
-          <ScrollView>
+          <ScrollView showsVerticalScrollIndicator={false}>
             <Text variant="headlineSmall" style={styles.modalTitle}>
               {editingJob ? 'Edit Job' : 'Create New Job'}
             </Text>
@@ -432,23 +528,26 @@ const ManageJobsScreen: React.FC = () => {
             </View>
 
             <View style={styles.modalActions}>
-              <Button
-                mode="outlined"
+              <Pressable
+                style={[styles.modalButton, styles.modalCancelButton]}
                 onPress={() => setModalVisible(false)}
-                style={styles.modalButton}
                 disabled={submitting}
               >
-                Cancel
-              </Button>
-              <Button
-                mode="contained"
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, styles.modalSubmitButton]}
                 onPress={handleSubmit}
-                style={styles.modalButton}
-                loading={submitting}
                 disabled={submitting}
               >
-                {editingJob ? 'Update' : 'Create'}
-              </Button>
+                {submitting ? (
+                  <ActivityIndicator size="small" color={colors.background} />
+                ) : (
+                  <Text style={styles.modalSubmitText}>
+                    {editingJob ? 'Update' : 'Create'}
+                  </Text>
+                )}
+              </Pressable>
             </View>
           </ScrollView>
         </Modal>
@@ -466,20 +565,116 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: spacing.md,
+    color: colors.textSecondary,
+  },
   scrollContent: {
     padding: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
-  header: {
-    marginBottom: spacing.xl,
+  heroCard: {
+    padding: spacing.xl,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.lg,
+    ...shadows.md,
   },
-  title: {
+  heroContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  heroTitle: {
     color: colors.text,
     fontWeight: '700',
+    marginBottom: spacing.xs,
   },
-  subtitle: {
+  heroSubtitle: {
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+  },
+  heroIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: borderRadius.pill,
+    backgroundColor: 'rgba(244, 224, 77, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickStatsContainer: {
+    marginBottom: spacing.lg,
+  },
+  quickStatsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  quickStatsGridTablet: {
+    flexWrap: 'nowrap',
+  },
+  quickStatCard: {
+    flex: 1,
+    minWidth: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    ...shadows.sm,
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickStatValue: {
+    color: colors.text,
+    fontWeight: '700',
+    lineHeight: 32,
+  },
+  quickStatLabel: {
+    color: colors.textSecondary,
+  },
+  filterCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.lg,
+    ...shadows.md,
+  },
+  searchbar: {
+    backgroundColor: colors.background,
+    marginBottom: spacing.md,
+  },
+  filterChipsContainer: {
+    gap: spacing.sm,
+  },
+  filterLabel: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  filterChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  filterChip: {
+    backgroundColor: colors.background,
+  },
+  filterChipSelected: {
+    backgroundColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  jobsGrid: {
+    gap: spacing.md,
+  },
+  jobsGridTablet: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   emptyCard: {
     backgroundColor: colors.surface,
@@ -490,89 +685,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.xxl,
   },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: borderRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
   emptyTitle: {
     color: colors.text,
-    marginTop: spacing.lg,
     fontWeight: '600',
+    marginBottom: spacing.sm,
   },
   emptyText: {
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: spacing.sm,
     marginBottom: spacing.xl,
   },
   emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
-  },
-  jobsList: {
-    gap: spacing.md,
-  },
-  jobCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
     ...shadows.md,
   },
-  jobHeader: {
-    marginBottom: spacing.md,
-  },
-  jobTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  jobTitle: {
-    color: colors.text,
-    fontWeight: '700',
-    flex: 1,
-  },
-  statusChip: {
-    height: 28,
-  },
-  publishedChip: {
-    backgroundColor: colors.success + '20',
-  },
-  draftChip: {
-    backgroundColor: colors.textSecondary + '20',
-  },
-  chipText: {
-    fontSize: 12,
-    textTransform: 'capitalize',
-  },
-  jobDetails: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  detailText: {
-    color: colors.textSecondary,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  statText: {
-    color: colors.textSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
+  emptyButtonText: {
+    color: colors.background,
+    fontWeight: '600',
+    fontSize: 16,
   },
   fab: {
     position: 'absolute',
@@ -623,6 +767,28 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalCancelText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  modalSubmitButton: {
+    backgroundColor: colors.primary,
+  },
+  modalSubmitText: {
+    color: colors.background,
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
 

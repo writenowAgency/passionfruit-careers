@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
+import { View, ScrollView, StyleSheet, Alert, Linking, Modal, TouchableOpacity } from 'react-native';
 import { Card, Text, Button as PaperButton, ActivityIndicator, Chip, Divider, IconButton } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppSelector, useAppDispatch } from '../../../store/hooks';
 import { profileApi, DocumentUpload } from '../../../services/profileApi';
 import { fetchProfile } from '../../../store/slices/profileSlice';
@@ -67,6 +68,8 @@ export function DocumentsManagerScreen() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingType, setUploadingType] = useState<DocumentType | null>(null);
+  const [pdfModalVisible, setPdfModalVisible] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string>('');
 
   useEffect(() => {
     loadDocuments();
@@ -181,18 +184,17 @@ export function DocumentsManagerScreen() {
     );
   };
 
-  const handleOpenDocument = async (fileUrl: string) => {
-    try {
-      const supported = await Linking.canOpenURL(fileUrl);
-      if (supported) {
-        await Linking.openURL(fileUrl);
-      } else {
-        Alert.alert('Error', 'Cannot open this document');
-      }
-    } catch (error) {
-      console.error('Open document error:', error);
-      Alert.alert('Error', 'Failed to open document');
+  const handleOpenDocument = (fileUrl: string) => {
+    console.log('Opening document:', fileUrl);
+
+    if (!fileUrl) {
+      Alert.alert('Error', 'Document URL not available');
+      return;
     }
+
+    // Open in modal with iframe
+    setPdfUrl(fileUrl);
+    setPdfModalVisible(true);
   };
 
   const formatFileSize = (bytes: number | null): string => {
@@ -221,6 +223,7 @@ export function DocumentsManagerScreen() {
   }
 
   return (
+    <>
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text variant="headlineMedium">Document Management</Text>
@@ -300,6 +303,37 @@ export function DocumentsManagerScreen() {
 
       <View style={{ marginBottom: 32 }} />
     </ScrollView>
+
+    <Modal
+      visible={pdfModalVisible}
+      onRequestClose={() => setPdfModalVisible(false)}
+      animationType="slide"
+      transparent={false}
+    >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text variant="titleLarge">Document Viewer</Text>
+          <TouchableOpacity
+            onPress={() => setPdfModalVisible(false)}
+            style={styles.closeButton}
+          >
+            <Ionicons name="close" size={28} color="#000" />
+          </TouchableOpacity>
+        </View>
+        {pdfUrl && (
+          <iframe
+            src={pdfUrl}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+            }}
+            title="PDF Viewer"
+          />
+        )}
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -333,5 +367,23 @@ const styles = StyleSheet.create({
   },
   documentActions: {
     flexDirection: 'row',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    elevation: 2,
+  },
+  closeButton: {
+    padding: 8,
   },
 });

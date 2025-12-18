@@ -276,7 +276,6 @@ const HomeScreen: React.FC = () => {
           data={jobs}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={340}
           refreshing={isFetching}
           onRefresh={onRefresh}
           ListHeaderComponent={

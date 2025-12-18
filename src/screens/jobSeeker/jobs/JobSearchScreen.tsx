@@ -159,7 +159,7 @@ const JobSearchScreen: React.FC = () => {
               style={styles.activeFilterChip}
               onPress={() => setFilters(prev => ({...prev, [key]: null}))}
             >
-              {getFilterLabel(key, value as string)}
+              {value && getFilterLabel(key, value)}
             </Chip>
           ))}
           <Button mode="text" onPress={() => setFilters({jobType: null, experienceLevel: null, datePosted: null})}>Clear All</Button>
@@ -205,7 +205,6 @@ const JobSearchScreen: React.FC = () => {
             />
           )}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={280}
           ListEmptyComponent={<EmptyState title="No Jobs Found" subtitle="Try adjusting your search or filters." />}
           contentContainerStyle={styles.listContent}
           onRefresh={refetch}
@@ -245,7 +244,7 @@ const JobSearchScreen: React.FC = () => {
       <FilterModal 
         visible={isFilterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        applyFilters={(f) => setFilters(f)}
+        applyFilters={(f: any) => setFilters(f)}
         currentFilters={filters}
       />
     </SafeAreaView>

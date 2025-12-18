@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import { colors } from '@/theme';
 import { InputField } from '@/components/common/InputField';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { SecondaryButton } from '@/components/common/SecondaryButton';
@@ -43,7 +44,7 @@ const PostJobWizard: React.FC = () => {
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, gap: 16 }}>
+    <View style={{ flex: 1, padding: 20, gap: 16, backgroundColor: colors.background }}>
       <Text variant="headlineMedium">Post a job</Text>
       <ProgressBar progress={(activeStep + 1) / steps.length} label={steps[activeStep]} />
 

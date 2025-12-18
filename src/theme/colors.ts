@@ -52,10 +52,10 @@ export const colors = {
   shadowStrong: 'rgba(0, 0, 0, 0.2)',
 
   // Gradient Colors
-  gradientPrimary: ['#F4E04D', '#E8D21F'],
-  gradientSecondary: ['#FFA726', '#F57C00'],
-  gradientAccent: ['#FF6B9D', '#C2185B'],
-  gradientBackground: ['#FFFFFF', '#F8F9FA'],
+  gradientPrimary: ['#F4E04D', '#E8D21F'] as readonly [string, string],
+  gradientSecondary: ['#FFA726', '#F57C00'] as readonly [string, string],
+  gradientAccent: ['#FF6B9D', '#C2185B'] as readonly [string, string],
+  gradientBackground: ['#FFFFFF', '#F8F9FA'] as readonly [string, string],
 
   // Match Score Colors
   matchHigh: '#4CAF50',    // 80-100%

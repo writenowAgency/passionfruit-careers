@@ -31,6 +31,7 @@ export interface DashboardStats {
   totalApplications: number;
   interviews: number;
   profileCompletion: number;
+  avgMatchScore?: number;
 }
 
 class JobSeekerApiService {

@@ -402,7 +402,6 @@ const ApplicationsScreen: React.FC = () => {
             keyExtractor={(item) => item.id.toString()}
             refreshing={refreshing}
             onRefresh={onRefresh}
-            estimatedItemSize={200}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
             renderItem={({ item }) => (

@@ -1,41 +1,102 @@
 import React from 'react';
-import { ScrollView, View, StyleSheet, ActivityIndicator } from 'react-native';
-import { Text, Card, Button } from 'react-native-paper';
+import { ScrollView, View, StyleSheet, ActivityIndicator, Dimensions, Pressable, Alert } from 'react-native';
+import { Text, Card } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { StatCard } from '@/components/cards/StatCard';
-import { employerApi, DashboardStats, RecentApplicant } from '@/services/employerApi';
+import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { employerApi, DashboardStats, RecentApplicant, Activity } from '@/services/employerApi';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 import { FadeIn } from '@/components/animations/FadeIn';
+import { ScaleUp } from '@/components/animations/ScaleUp';
+import { SlideIn } from '@/components/animations/SlideIn';
+import { EnhancedStatCard } from '@/components/cards/EnhancedStatCard';
+import { ApplicantListItem } from '@/components/cards/ApplicantListItem';
+import { QuickActionButton } from '@/components/common/QuickActionButton';
+import { ActivityTimelineItem } from '@/components/cards/ActivityTimelineItem';
+import { EmployerTabParamList } from '@/navigation/types';
+
+const { width } = Dimensions.get('window');
+const isTablet = width >= 768;
+
+type DashboardStackParamList = {
+  EmployerHome: undefined;
+  QuickStats: undefined;
+  RecentActivity: undefined;
+  EmployerProfile: undefined;
+};
+
+type NavigationProp = CompositeNavigationProp<
+  NativeStackNavigationProp<DashboardStackParamList>,
+  BottomTabNavigationProp<EmployerTabParamList>
+>;
 
 const EmployerHome: React.FC = () => {
+  const navigation = useNavigation<NavigationProp>();
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.auth.token);
 
   const [loading, setLoading] = React.useState(true);
   const [stats, setStats] = React.useState<DashboardStats | null>(null);
   const [applicants, setApplicants] = React.useState<RecentApplicant[]>([]);
+  const [recentActivities, setRecentActivities] = React.useState<Activity[]>([]);
+  const [avgMatchScore, setAvgMatchScore] = React.useState(0);
+  const [companyName, setCompanyName] = React.useState<string>('');
 
   React.useEffect(() => {
     fetchDashboardData();
   }, [token]);
 
   const fetchDashboardData = async () => {
-    if (!token) return;
+    console.log('fetchDashboardData called, token exists:', !!token);
+    if (!token) {
+      console.log('No token found, skipping API calls');
+      return;
+    }
 
     try {
       setLoading(true);
-      const [statsData, applicantsData] = await Promise.all([
+
+      console.log('Making API calls...');
+      const [statsData, applicantsData, allApplicantsData, activityData, profileData] = await Promise.all([
         employerApi.getDashboardStats(token),
-        employerApi.getRecentApplicants(token, 3),
+        employerApi.getRecentApplicants(token, 5),
+        employerApi.getRecentApplicants(token, 100), // Get up to 100 applicants
+        employerApi.getRecentActivity(token, 5),
+        employerApi.getProfile(token),
       ]);
+
+      console.log('=== API RESPONSES ===');
+      console.log('Dashboard Stats:', JSON.stringify(statsData, null, 2));
+      console.log('Recent Applicants:', JSON.stringify(applicantsData, null, 2));
+      console.log('Profile Data:', JSON.stringify(profileData, null, 2));
 
       setStats(statsData);
       setApplicants(applicantsData.applicants);
+      setRecentActivities(activityData.activities);
+      setCompanyName(profileData.companyName || '');
+
+      // Calculate average match score
+      if (allApplicantsData.applicants.length > 0) {
+        const totalScore = allApplicantsData.applicants.reduce(
+          (acc, applicant) => acc + applicant.matchScore,
+          0
+        );
+        const avg = Math.round(totalScore / allApplicantsData.applicants.length);
+        setAvgMatchScore(avg);
+      }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
+      console.error('=== ERROR FETCHING DASHBOARD DATA ===');
+      console.error('Error:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
     } finally {
       setLoading(false);
     }
@@ -45,79 +106,205 @@ const EmployerHome: React.FC = () => {
     dispatch(logout());
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    let greeting = '';
+    if (hour < 12) greeting = 'Good Morning';
+    else if (hour < 18) greeting = 'Good Afternoon';
+    else greeting = 'Good Evening';
+
+    // Add company name if available
+    if (companyName) {
+      return `${greeting}, ${companyName}`;
+    }
+    return greeting;
+  };
+
+  // Navigation handlers
+  const handlePostJob = () => {
+    navigation.navigate('EmployerJobs', {
+      screen: 'ManageJobs',
+      params: { openCreateModal: true },
+    });
+  };
+
+  const handleViewApplications = () => {
+    navigation.navigate('EmployerApplicants', { screen: 'Applicants', params: { filter: 'all' } });
+  };
+
+  const handleReviewPending = () => {
+    console.log('Review Pending button clicked - navigating with filter: pending');
+    navigation.navigate('EmployerApplicants', {
+      screen: 'Applicants',
+      params: { filter: 'pending' },
+    });
+  };
+
+  const handleNavigateToAnalytics = () => {
+    navigation.navigate('EmployerAnalytics', { screen: 'Analytics' });
+  };
+
+  const handleNavigateToJobs = () => {
+    navigation.navigate('EmployerJobs', { screen: 'ManageJobs' });
+  };
+
+  const handleViewAllActivity = () => {
+    navigation.navigate('RecentActivity');
+  };
+
+  const handleViewApplicantProfile = (applicantId: number) => {
+    navigation.navigate('EmployerApplicants', {
+      screen: 'ApplicantProfile',
+      params: { applicantId },
+    });
+  };
+
+  const handleNavigateToProfile = () => {
+    navigation.navigate('EmployerProfile');
+  };
+
+  const handleNavigateToBilling = () => {
+    navigation.navigate('EmployerCredits', { screen: 'Credits' });
+  };
+
+  const handleNavigateToTeam = () => {
+    navigation.navigate('TeamManagement' as never);
+  };
+
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={colors.primary} />
+        <Text variant="bodyLarge" style={styles.loadingText}>
+          Loading your dashboard...
+        </Text>
       </View>
     );
   }
 
+  const pendingReviews = stats?.pendingReviews || 0;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Welcome Header */}
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Hero Section */}
       <FadeIn delay={0}>
-        <View style={styles.header}>
-          <View>
-            <Text variant="headlineLarge" style={styles.title}>
-              Recruitment Dashboard
-            </Text>
-            <Text variant="bodyMedium" style={styles.subtitle}>
-              Manage your hiring pipeline
-            </Text>
-          </View>
-          <Ionicons name="briefcase" size={32} color={colors.primary} />
-        </View>
-      </FadeIn>
-
-      {/* Stats Cards */}
-      <FadeIn delay={100}>
-        <View style={styles.statsContainer}>
-          <LinearGradient
-            colors={colors.gradientPrimary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.statCard}
-          >
-            <Ionicons name="document-text" size={32} color={colors.text} />
-            <Text variant="displaySmall" style={styles.statValue}>
-              {stats?.activeJobs || 0}
-            </Text>
-            <Text variant="bodyMedium" style={styles.statLabel}>
-              Active Jobs
-            </Text>
-            <View style={styles.trendBadge}>
-              <Ionicons name="trending-up" size={12} color={colors.success} />
-              <Text style={styles.trendText}>+{stats?.jobGrowth || 0}%</Text>
-            </View>
-          </LinearGradient>
-
-          <LinearGradient
-            colors={colors.gradientSecondary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.statCard}
-          >
-            <Ionicons name="people" size={32} color={colors.background} />
-            <Text variant="displaySmall" style={[styles.statValue, { color: colors.background }]}>
-              {stats?.totalApplicants || 0}
-            </Text>
-            <Text variant="bodyMedium" style={[styles.statLabel, { color: colors.background }]}>
-              Total Applicants
-            </Text>
-            <View style={[styles.trendBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              <Ionicons
-                name={stats?.applicantGrowth && stats.applicantGrowth >= 0 ? "trending-up" : "trending-down"}
-                size={12}
-                color={colors.background}
-              />
-              <Text style={[styles.trendText, { color: colors.background }]}>
-                {stats?.applicantGrowth >= 0 ? '+' : ''}{stats?.applicantGrowth || 0}
+        <LinearGradient
+          colors={['#FFF9E6', colors.background]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <View style={styles.heroContent}>
+            <View>
+              <Text variant="displaySmall" style={styles.heroTitle}>
+                {getGreeting()}
+              </Text>
+              <Text variant="bodyLarge" style={styles.heroSubtitle}>
+                {pendingReviews} applicant{pendingReviews !== 1 ? 's' : ''} waiting for review
               </Text>
             </View>
-          </LinearGradient>
-        </View>
+            <View style={styles.herIcon}>
+              <Ionicons name="briefcase" size={40} color={colors.primary} />
+            </View>
+          </View>
+        </LinearGradient>
       </FadeIn>
+
+      {/* Quick Actions */}
+      <View style={styles.quickActionsContainer}>
+        <Text variant="titleLarge" style={styles.sectionTitle}>
+          Quick Actions
+        </Text>
+        <View style={[styles.quickActionsGrid, isTablet && styles.quickActionsGridTablet]}>
+          <SlideIn delay={50}>
+            <QuickActionButton
+              icon="add-circle"
+              label="Post Job"
+              variant="primary"
+              onPress={handlePostJob}
+            />
+          </SlideIn>
+          <SlideIn delay={100}>
+            <QuickActionButton
+              icon="people"
+              label="View Applicants"
+              variant="secondary"
+              onPress={handleViewApplications}
+            />
+          </SlideIn>
+          <SlideIn delay={150}>
+            <QuickActionButton
+              icon="checkmark-done"
+              label="Review Pending"
+              variant="neutral"
+              badge={pendingReviews}
+              onPress={handleReviewPending}
+            />
+          </SlideIn>
+          <SlideIn delay={200}>
+            <QuickActionButton
+              icon="bar-chart"
+              label="Analytics"
+              variant="neutral"
+              onPress={handleNavigateToAnalytics}
+            />
+          </SlideIn>
+        </View>
+      </View>
+
+      {/* Enhanced Stats */}
+      <View style={styles.statsSection}>
+        <Text variant="titleLarge" style={styles.sectionTitle}>
+          Overview
+        </Text>
+        <View style={[styles.statsGrid, isTablet && styles.statsGridTablet]}>
+          <ScaleUp delay={100}>
+            <EnhancedStatCard
+              icon="document-text"
+              value={stats?.activeJobs || 0}
+              label="Active Jobs"
+              trend={stats?.jobGrowth}
+              progress={(stats?.activeJobs || 0) > 0 ? Math.min((stats?.activeJobs || 0) * 10, 100) : 0}
+              gradientColors={[colors.primaryLight, '#FFFFFF']}
+              onPress={handleNavigateToJobs}
+            />
+          </ScaleUp>
+          <ScaleUp delay={150}>
+            <EnhancedStatCard
+              icon="people"
+              value={stats?.totalApplicants || 0}
+              label="Total Applicants"
+              trend={stats?.applicantGrowth}
+              progress={(stats?.totalApplicants || 0) > 0 ? Math.min((stats?.totalApplicants || 0) * 2, 100) : 0}
+              gradientColors={[colors.secondaryLight, '#FFFFFF']}
+              onPress={handleViewApplications}
+            />
+          </ScaleUp>
+          <ScaleUp delay={200}>
+            <EnhancedStatCard
+              icon="time"
+              value={pendingReviews}
+              label="Pending Reviews"
+              progress={pendingReviews > 0 ? Math.min(pendingReviews * 10, 100) : 0}
+              gradientColors={[colors.warningLight, '#FFFFFF']}
+              onPress={handleReviewPending}
+            />
+          </ScaleUp>
+          <ScaleUp delay={250}>
+            <EnhancedStatCard
+              icon="star"
+              value={avgMatchScore}
+              label="Avg Match Score"
+              progress={avgMatchScore}
+              gradientColors={[colors.accentLight, '#FFFFFF']}
+              onPress={handleNavigateToAnalytics}
+            />
+          </ScaleUp>
+        </View>
+      </View>
 
       {/* Recent Applicants */}
       <FadeIn delay={200}>
@@ -131,52 +318,97 @@ const EmployerHome: React.FC = () => {
             </View>
             <View style={styles.applicantsList}>
               {applicants.length > 0 ? (
-                applicants.map((applicant) => (
-                  <View key={applicant.id} style={styles.applicantItem}>
-                    <View style={styles.applicantAvatar}>
-                      <Text style={styles.applicantInitials}>
-                        {applicant.name.charAt(0)}
-                      </Text>
-                    </View>
-                    <View style={styles.applicantInfo}>
-                      <Text variant="titleMedium" style={styles.applicantName}>
-                        {applicant.name}
-                      </Text>
-                      <Text variant="bodySmall" style={styles.applicantRole}>
-                        {applicant.role}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                  </View>
+                applicants.slice(0, 5).map((applicant, index) => (
+                  <SlideIn key={applicant.id} delay={index * 50}>
+                    <ApplicantListItem
+                      applicant={applicant}
+                      onPress={() => handleViewApplicantProfile(applicant.id)}
+                      showMatchScore={true}
+                    />
+                  </SlideIn>
                 ))
               ) : (
-                <Text style={{ textAlign: 'center', color: colors.textSecondary, padding: spacing.lg }}>
-                  No recent applicants
-                </Text>
+                <View style={styles.emptyState}>
+                  <Ionicons name="people-outline" size={48} color={colors.textTertiary} />
+                  <Text variant="bodyLarge" style={styles.emptyStateText}>
+                    No recent applications
+                  </Text>
+                  <Text variant="bodySmall" style={styles.emptyStateSubtext}>
+                    Post a job to start receiving applications
+                  </Text>
+                  <Pressable
+                    style={styles.emptyStateButton}
+                    onPress={handlePostJob}
+                  >
+                    <Text style={styles.emptyStateButtonText}>Post a Job</Text>
+                  </Pressable>
+                </View>
               )}
             </View>
           </Card.Content>
         </Card>
       </FadeIn>
 
-      {/* Account Section */}
+      {/* Activity Timeline */}
+      <FadeIn delay={250}>
+        <Card style={styles.card}>
+          <Card.Content>
+            <View style={styles.cardHeader}>
+              <Text variant="titleLarge" style={styles.cardTitle}>
+                Recent Activity
+              </Text>
+              <Ionicons name="pulse" size={20} color={colors.textSecondary} />
+            </View>
+            <View style={styles.timelineContainer}>
+              {recentActivities.map((activity, index) => (
+                <ActivityTimelineItem
+                  key={activity.id}
+                  activity={activity}
+                  isLast={index === recentActivities.length - 1}
+                />
+              ))}
+            </View>
+            <Pressable
+              style={styles.viewAllLink}
+              onPress={handleViewAllActivity}
+            >
+              <Text style={styles.viewAllLinkText}>View All Activity</Text>
+              <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+            </Pressable>
+          </Card.Content>
+        </Card>
+      </FadeIn>
+
+      {/* Account Actions */}
       <FadeIn delay={300}>
         <Card style={styles.card}>
           <Card.Content>
             <Text variant="titleLarge" style={styles.cardTitle}>
               Account
             </Text>
-            <Button
-              mode="contained"
-              onPress={handleLogout}
-              buttonColor={colors.error}
-              icon="logout"
-              style={styles.logoutButton}
-              contentStyle={styles.logoutButtonContent}
-              labelStyle={styles.logoutButtonLabel}
-            >
-              Log Out
-            </Button>
+            <View style={styles.accountActionsGrid}>
+              <Pressable style={styles.accountAction} onPress={handleNavigateToProfile}>
+                <Ionicons name="person" size={24} color={colors.primary} />
+                <Text style={styles.accountActionText}>Profile</Text>
+              </Pressable>
+              <Pressable style={styles.accountAction} onPress={handleNavigateToBilling}>
+                <Ionicons name="card" size={24} color={colors.secondary} />
+                <Text style={styles.accountActionText}>Billing</Text>
+              </Pressable>
+              <Pressable style={styles.accountAction} onPress={handleNavigateToTeam}>
+                <Ionicons name="people" size={24} color={colors.info} />
+                <Text style={styles.accountActionText}>Team</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.accountAction, styles.logoutAction]}
+                onPress={handleLogout}
+              >
+                <Ionicons name="log-out" size={24} color={colors.error} />
+                <Text style={[styles.accountActionText, styles.logoutText]}>
+                  Log Out
+                </Text>
+              </Pressable>
+            </View>
           </Card.Content>
         </Card>
       </FadeIn>
@@ -192,57 +424,68 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xl,
-  },
-  title: {
-    color: colors.text,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  statCard: {
+  centerContent: {
     flex: 1,
-    padding: spacing.lg,
-    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    color: colors.textSecondary,
+  },
+  heroCard: {
+    padding: spacing.xl,
+    borderRadius: borderRadius.xl,
+    marginBottom: spacing.xl,
     ...shadows.md,
   },
-  statValue: {
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: spacing.sm,
-  },
-  statLabel: {
-    color: colors.text,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  trendBadge: {
+  heroContent: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 4,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    borderRadius: borderRadius.pill,
   },
-  trendText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.success,
+  heroTitle: {
+    color: colors.text,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  heroSubtitle: {
+    color: colors.textSecondary,
+  },
+  herIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.pill,
+    backgroundColor: 'rgba(244, 224, 77, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontWeight: '700',
+    marginBottom: spacing.md,
+  },
+  quickActionsContainer: {
+    marginBottom: spacing.xl,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  quickActionsGridTablet: {
+    flexWrap: 'nowrap',
+  },
+  statsSection: {
+    marginBottom: spacing.xl,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  statsGridTablet: {
+    flexWrap: 'nowrap',
   },
   card: {
     marginBottom: spacing.lg,
@@ -263,48 +506,71 @@ const styles = StyleSheet.create({
   applicantsList: {
     gap: spacing.sm,
   },
-  applicantItem: {
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+  },
+  emptyStateText: {
+    color: colors.text,
+    fontWeight: '600',
+    marginTop: spacing.md,
+  },
+  emptyStateSubtext: {
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
+  },
+  emptyStateButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  emptyStateButtonText: {
+    color: colors.text,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  timelineContainer: {
+    gap: spacing.xs,
+  },
+  viewAllLink: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    alignSelf: 'flex-end',
+  },
+  viewAllLinkText: {
+    color: colors.primary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  accountActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
-    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  accountAction: {
+    flex: 1,
+    minWidth: '45%',
+    alignItems: 'center',
+    padding: spacing.lg,
     backgroundColor: colors.background,
     borderRadius: borderRadius.md,
+    gap: spacing.sm,
   },
-  applicantAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  applicantInitials: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  applicantInfo: {
-    flex: 1,
-  },
-  applicantName: {
+  accountActionText: {
     color: colors.text,
     fontWeight: '600',
+    fontSize: 14,
   },
-  applicantRole: {
-    color: colors.textSecondary,
-    marginTop: 2,
+  logoutAction: {
+    backgroundColor: `${colors.error}10`,
   },
-  logoutButton: {
-    marginTop: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  logoutButtonContent: {
-    paddingVertical: spacing.sm,
-  },
-  logoutButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+  logoutText: {
+    color: colors.error,
   },
 });
 

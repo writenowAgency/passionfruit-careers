@@ -299,6 +299,23 @@ const HomeScreenModern: React.FC = () => {
                 </Text>
               </LinearGradient>
             </View>
+
+            <View style={styles.statCard}>
+              <LinearGradient
+                colors={['#FF9800', '#F57C00']} // Orange gradient
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.statGradient}
+              >
+                <Ionicons name="trending-up-outline" size={20} color={colors.background} />
+                <Text variant="headlineSmall" style={[styles.statValue, { color: colors.background }]}>
+                  {stats?.avgMatchScore || 0}%
+                </Text>
+                <Text variant="bodySmall" style={[styles.statLabel, { color: colors.background }]}>
+                  Avg Match
+                </Text>
+              </LinearGradient>
+            </View>
           </View>
         </FadeIn>
 
@@ -381,7 +398,6 @@ const HomeScreenModern: React.FC = () => {
           data={filteredJobs}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={320}
           refreshing={isFetching}
           onRefresh={onRefresh}
           ListHeaderComponent={<WelcomeHeader />}
