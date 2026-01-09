@@ -1,0 +1,25 @@
+{
+  "name": "writenow",
+  "version": "1.0.0",
+  "description": "WriteNow Authentication System",
+  "scripts": {
+    "install:backend": "cd backend && npm install",
+    "dev": "cd backend && npm run dev",
+    "migrate": "cd backend && npm run migrate",
+    "test": "bash test-auth.sh",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "setup": "npm run docker:up && npm run install:backend && npm run migrate",
+    "start": "npm run docker:up && npm run dev"
+  },
+  "keywords": [
+    "authentication",
+    "postgresql",
+    "jwt",
+    "express",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC"
+}

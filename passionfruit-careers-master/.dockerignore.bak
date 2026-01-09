@@ -1,0 +1,22 @@
+# Root level node_modules
+/node_modules
+/npm-debug.log
+/.env
+/.DS_Store
+*.log
+/dist
+/.git
+/.gitignore
+
+# Backend build artifacts (will be rebuilt)
+backend/node_modules
+backend/dist
+
+# Frontend and other non-backend files
+frontend
+scripts
+assets
+src
+test-*
+*.md
+!backend/**
