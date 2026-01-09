@@ -19,6 +19,7 @@ export interface RecentApplicant {
   appliedAt: string;
   status: string;
   matchScore: number;
+  photo?: string;
 }
 
 export interface Activity {
@@ -260,11 +261,11 @@ class EmployerApiService {
       description: string;
       requirements?: string;
       location?: string;
-      jobType?: string;
-      salaryMin?: number;
-      salaryMax?: number;
-      salaryCurrency?: string;
-      experienceLevel?: string;
+      job_type?: string;
+      salary_min?: number;
+      salary_max?: number;
+      salary_currency?: string;
+      experience_level?: string;
       status?: string;
     }
   ): Promise<{ message: string; job: Job }> {
@@ -296,11 +297,11 @@ class EmployerApiService {
       description: string;
       requirements: string;
       location: string;
-      jobType: string;
-      salaryMin: number;
-      salaryMax: number;
-      salaryCurrency: string;
-      experienceLevel: string;
+      job_type: string;
+      salary_min: number;
+      salary_max: number;
+      salary_currency: string;
+      experience_level: string;
       status: string;
     }>
   ): Promise<{ message: string; job: Job }> {
@@ -406,7 +407,7 @@ class EmployerApiService {
   async updateApplicationStatus(
     token: string,
     applicationId: number,
-    status: 'pending' | 'reviewed' | 'shortlisted' | 'accepted' | 'rejected' | 'interview'
+    status: 'pending' | 'reviewed' | 'shortlisted' | 'accepted' | 'rejected' | 'interview' | 'offered'
   ): Promise<{ message: string; status: string }> {
     try {
       const response = await fetch(`${this.baseUrl}/employer/applications/${applicationId}/status`, {

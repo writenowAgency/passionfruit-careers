@@ -19,7 +19,8 @@ type PipelineStage = 'new' | 'reviewing' | 'interview' | 'offer' | 'hired' | 're
 interface PipelineColumn {
   stage: PipelineStage;
   title: string;
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  menuIcon: string; // Material Community Icons for Menu.Item
   color: string;
   backgroundColor: string;
 }
@@ -29,6 +30,7 @@ const PIPELINE_STAGES: PipelineColumn[] = [
     stage: 'new',
     title: 'New',
     icon: 'mail-unread',
+    menuIcon: 'email-outline',
     color: colors.info,
     backgroundColor: `${colors.info}15`,
   },
@@ -36,6 +38,7 @@ const PIPELINE_STAGES: PipelineColumn[] = [
     stage: 'reviewing',
     title: 'Reviewing',
     icon: 'eye',
+    menuIcon: 'eye-outline',
     color: colors.warning,
     backgroundColor: `${colors.warning}15`,
   },
@@ -43,6 +46,7 @@ const PIPELINE_STAGES: PipelineColumn[] = [
     stage: 'interview',
     title: 'Interview',
     icon: 'people',
+    menuIcon: 'account-group',
     color: colors.secondary,
     backgroundColor: `${colors.secondary}15`,
   },
@@ -50,6 +54,7 @@ const PIPELINE_STAGES: PipelineColumn[] = [
     stage: 'offer',
     title: 'Offer',
     icon: 'document-text',
+    menuIcon: 'file-document-outline',
     color: colors.accent,
     backgroundColor: `${colors.accent}15`,
   },
@@ -57,6 +62,7 @@ const PIPELINE_STAGES: PipelineColumn[] = [
     stage: 'hired',
     title: 'Hired',
     icon: 'checkmark-circle',
+    menuIcon: 'check-circle-outline',
     color: colors.success,
     backgroundColor: `${colors.success}15`,
   },
@@ -64,6 +70,7 @@ const PIPELINE_STAGES: PipelineColumn[] = [
     stage: 'rejected',
     title: 'Rejected',
     icon: 'close-circle',
+    menuIcon: 'close-circle-outline',
     color: colors.error,
     backgroundColor: `${colors.error}15`,
   },
@@ -210,7 +217,7 @@ const ApplicantPipelineScreen: React.FC = () => {
                   key={stage.stage}
                   onPress={() => handleMoveToStage(applicant.id, stage.stage)}
                   title={`Move to ${stage.title}`}
-                  leadingIcon={stage.icon}
+                  leadingIcon={stage.menuIcon}
                 />
               ))}
             </Menu>
@@ -253,14 +260,14 @@ const ApplicantPipelineScreen: React.FC = () => {
       <View key={column.stage} style={styles.column}>
         <View style={[styles.columnHeader, { backgroundColor: column.backgroundColor }]}>
           <View style={styles.columnHeaderContent}>
-            <Ionicons name={column.icon as any} size={20} color={column.color} />
+            <Ionicons name={column.icon} size={20} color={column.color} />
             <Text variant="titleMedium" style={[styles.columnTitle, { color: column.color }]}>
               {column.title}
             </Text>
+            <Chip compact style={[styles.countChip, { backgroundColor: column.color }]}>
+              <Text style={styles.countText}>{stageApplicants.length}</Text>
+            </Chip>
           </View>
-          <Chip compact style={[styles.countChip, { backgroundColor: column.color }]}>
-            <Text style={styles.countText}>{stageApplicants.length}</Text>
-          </Chip>
         </View>
 
         <ScrollView
@@ -384,7 +391,7 @@ const styles = StyleSheet.create({
   },
   columnHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.md,
     borderTopLeftRadius: borderRadius.lg,
@@ -401,11 +408,15 @@ const styles = StyleSheet.create({
   countChip: {
     height: 24,
     paddingHorizontal: spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   countText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 14,
   },
   columnContent: {
     flex: 1,

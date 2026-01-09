@@ -338,11 +338,11 @@ router.post('/jobs', authenticateToken, async (req, res) => {
       responsibilities,
       benefits,
       location,
-      jobType,
-      salaryMin,
-      salaryMax,
-      salaryCurrency,
-      experienceLevel,
+      job_type,
+      salary_min,
+      salary_max,
+      salary_currency,
+      experience_level,
       status = 'published',
     } = req.body;
 
@@ -406,11 +406,11 @@ router.post('/jobs', authenticateToken, async (req, res) => {
         responsibilities || null,
         benefits || null,
         location || null,
-        jobType || null,
-        salaryMin || null,
-        salaryMax || null,
-        salaryCurrency || 'ZAR',
-        experienceLevel || null,
+        job_type || null,
+        salary_min || null,
+        salary_max || null,
+        salary_currency || 'ZAR',
+        experience_level || null,
         status,
       ]
     );
@@ -437,11 +437,11 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
       responsibilities,
       benefits,
       location,
-      jobType,
-      salaryMin,
-      salaryMax,
-      salaryCurrency,
-      experienceLevel,
+      job_type,
+      salary_min,
+      salary_max,
+      salary_currency,
+      experience_level,
       status,
     } = req.body;
 
@@ -505,25 +505,25 @@ router.put('/jobs/:id', authenticateToken, async (req, res) => {
       updates.push(`location = $${paramCount++}`);
       values.push(location);
     }
-    if (jobType !== undefined) {
+    if (job_type !== undefined) {
       updates.push(`job_type = $${paramCount++}`);
-      values.push(jobType);
+      values.push(job_type);
     }
-    if (salaryMin !== undefined) {
+    if (salary_min !== undefined) {
       updates.push(`salary_min = $${paramCount++}`);
-      values.push(salaryMin);
+      values.push(salary_min);
     }
-    if (salaryMax !== undefined) {
+    if (salary_max !== undefined) {
       updates.push(`salary_max = $${paramCount++}`);
-      values.push(salaryMax);
+      values.push(salary_max);
     }
-    if (salaryCurrency !== undefined) {
+    if (salary_currency !== undefined) {
       updates.push(`salary_currency = $${paramCount++}`);
-      values.push(salaryCurrency);
+      values.push(salary_currency);
     }
-    if (experienceLevel !== undefined) {
+    if (experience_level !== undefined) {
       updates.push(`experience_level = $${paramCount++}`);
-      values.push(experienceLevel);
+      values.push(experience_level);
     }
     if (status !== undefined) {
       updates.push(`status = $${paramCount++}`);

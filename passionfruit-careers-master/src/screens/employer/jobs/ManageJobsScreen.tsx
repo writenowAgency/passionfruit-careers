@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, RefreshControl, Alert, Dimensions, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl, Alert, Dimensions, Pressable, Platform } from 'react-native';
 import {
   Text,
   Card,
@@ -78,7 +78,11 @@ const ManageJobsScreen: React.FC = () => {
       setJobs(fetchedJobs);
     } catch (error) {
       console.error('Failed to fetch jobs:', error);
-      Alert.alert('Error', 'Failed to load jobs');
+      if (Platform.OS === 'web') {
+        alert('Failed to load jobs');
+      } else {
+        Alert.alert('Error', 'Failed to load jobs');
+      }
     } finally {
       setLoading(false);
     }
@@ -146,7 +150,11 @@ const ManageJobsScreen: React.FC = () => {
     if (!token) return;
 
     if (!title.trim() || !description.trim()) {
-      Alert.alert('Error', 'Please fill in title and description');
+      if (Platform.OS === 'web') {
+        alert('Please fill in title and description');
+      } else {
+        Alert.alert('Error', 'Please fill in title and description');
+      }
       return;
     }
 
@@ -158,20 +166,28 @@ const ManageJobsScreen: React.FC = () => {
         description: description.trim(),
         requirements: requirements.trim() || undefined,
         location: location.trim() || undefined,
-        jobType,
-        salaryMin: salaryMin ? parseInt(salaryMin) : undefined,
-        salaryMax: salaryMax ? parseInt(salaryMax) : undefined,
-        salaryCurrency: 'ZAR',
-        experienceLevel,
+        job_type: jobType,
+        salary_min: salaryMin ? parseInt(salaryMin) : undefined,
+        salary_max: salaryMax ? parseInt(salaryMax) : undefined,
+        salary_currency: 'ZAR',
+        experience_level: experienceLevel,
         status: 'published',
       };
 
       if (editingJob) {
         await employerApi.updateJob(token, editingJob.id, jobData);
-        Alert.alert('Success', 'Job updated successfully!');
+        if (Platform.OS === 'web') {
+          alert('Job updated successfully!');
+        } else {
+          Alert.alert('Success', 'Job updated successfully!');
+        }
       } else {
         await employerApi.createJob(token, jobData);
-        Alert.alert('Success', 'Job created successfully!');
+        if (Platform.OS === 'web') {
+          alert('Job created successfully!');
+        } else {
+          Alert.alert('Success', 'Job created successfully!');
+        }
       }
 
       setModalVisible(false);
@@ -179,7 +195,11 @@ const ManageJobsScreen: React.FC = () => {
       await fetchJobs();
     } catch (error) {
       console.error('Failed to save job:', error);
-      Alert.alert('Error', 'Failed to save job. Please try again.');
+      if (Platform.OS === 'web') {
+        alert('Failed to save job. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to save job. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -188,27 +208,42 @@ const ManageJobsScreen: React.FC = () => {
   const handleDelete = async (jobId: number, jobTitle: string) => {
     if (!token) return;
 
-    Alert.alert(
-      'Delete Job',
-      `Are you sure you want to delete "${jobTitle}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await employerApi.deleteJob(token, jobId);
-              Alert.alert('Success', 'Job deleted successfully');
-              await fetchJobs();
-            } catch (error) {
-              console.error('Failed to delete job:', error);
-              Alert.alert('Error', 'Failed to delete job');
-            }
+    // Use native browser confirm for web, Alert for mobile
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(`Are you sure you want to delete "${jobTitle}"?`);
+      if (confirmed) {
+        try {
+          await employerApi.deleteJob(token, jobId);
+          alert('Job deleted successfully');
+          await fetchJobs();
+        } catch (error) {
+          console.error('Failed to delete job:', error);
+          alert('Failed to delete job');
+        }
+      }
+    } else {
+      Alert.alert(
+        'Delete Job',
+        `Are you sure you want to delete "${jobTitle}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await employerApi.deleteJob(token, jobId);
+                Alert.alert('Success', 'Job deleted successfully');
+                await fetchJobs();
+              } catch (error) {
+                console.error('Failed to delete job:', error);
+                Alert.alert('Error', 'Failed to delete job');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const getJobStats = () => {
