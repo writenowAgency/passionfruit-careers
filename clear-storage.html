@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear App Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: green;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .info {
+            color: #666;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clear App Storage</h1>
+        <p>This will clear all stored data including authentication tokens.</p>
+
+        <button onclick="clearStorage()">Clear All Storage</button>
+        <button onclick="clearAuth()">Clear Auth Only</button>
+        <button onclick="window.location.href='http://localhost:8081'">Go to App</button>
+
+        <div id="message"></div>
+
+        <div class="info">
+            <h3>What this clears:</h3>
+            <ul>
+                <li>Authentication tokens</li>
+                <li>Local storage data</li>
+                <li>Session storage</li>
+                <li>All cached app data</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function clearStorage() {
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // Clear IndexedDB (used by AsyncStorage in web)
+            if (window.indexedDB) {
+                indexedDB.databases().then(dbs => {
+                    dbs.forEach(db => {
+                        if (db.name) {
+                            indexedDB.deleteDatabase(db.name);
+                        }
+                    });
+                });
+            }
+
+            document.getElementById('message').innerHTML =
+                '<div class="success">✅ All storage cleared successfully! Reload the app.</div>';
+
+            setTimeout(() => {
+                window.location.href = 'http://localhost:8081';
+            }, 2000);
+        }
+
+        function clearAuth() {
+            localStorage.removeItem('pf_auth');
+            sessionStorage.removeItem('pf_auth');
+
+            document.getElementById('message').innerHTML =
+                '<div class="success">✅ Auth cleared! Reload the app.</div>';
+
+            setTimeout(() => {
+                window.location.href = 'http://localhost:8081';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
