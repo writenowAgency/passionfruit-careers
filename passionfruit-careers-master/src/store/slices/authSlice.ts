@@ -5,6 +5,14 @@ import type { UserRole } from '../../types';
 export interface AuthState {
   token: string | null;
   userRole: UserRole | null;
+  user: {
+    id: number;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    first_name?: string;
+    last_name?: string;
+  } | null;
   isAuthenticated: boolean;
   status: 'idle' | 'loading' | 'error';
   error?: string;
@@ -15,6 +23,7 @@ const AUTH_KEY = 'pf_auth';
 const initialState: AuthState = {
   token: null,
   userRole: null,
+  user: null,
   isAuthenticated: false,
   status: 'idle',
 };
@@ -24,7 +33,7 @@ export const bootstrapAuth = createAsyncThunk('auth/bootstrap', async () => {
     const raw = await AsyncStorage.getItem(AUTH_KEY);
     if (!raw) return null;
 
-    const auth = JSON.parse(raw) as Pick<AuthState, 'token' | 'userRole'>;
+    const auth = JSON.parse(raw) as Pick<AuthState, 'token' | 'userRole' | 'user'>;
 
     // Validate token is not expired (basic check)
     if (auth.token) {
@@ -52,7 +61,7 @@ export const bootstrapAuth = createAsyncThunk('auth/bootstrap', async () => {
   }
 });
 
-const persistAuth = async (state: Pick<AuthState, 'token' | 'userRole'>) => {
+const persistAuth = async (state: Pick<AuthState, 'token' | 'userRole' | 'user'>) => {
   await AsyncStorage.setItem(AUTH_KEY, JSON.stringify(state));
 };
 
@@ -62,16 +71,18 @@ export const authSlice = createSlice({
   reducers: {
     loginSuccess: (
       state,
-      action: PayloadAction<{ token: string; userRole: UserRole }>,
+      action: PayloadAction<{ token: string; userRole: UserRole; user: AuthState['user'] }>,
     ) => {
       state.token = action.payload.token;
       state.userRole = action.payload.userRole;
+      state.user = action.payload.user;
       state.isAuthenticated = true;
-      persistAuth({ token: state.token, userRole: state.userRole! });
+      persistAuth({ token: state.token, userRole: state.userRole!, user: state.user });
     },
     logout: (state) => {
       state.token = null;
       state.userRole = null;
+      state.user = null;
       state.isAuthenticated = false;
       AsyncStorage.removeItem(AUTH_KEY);
     },
@@ -89,6 +100,7 @@ export const authSlice = createSlice({
         if (action.payload) {
           state.token = action.payload.token;
           state.userRole = action.payload.userRole;
+          state.user = action.payload.user || null;
           state.isAuthenticated = Boolean(action.payload.token);
         }
       })

@@ -6,8 +6,8 @@ class AnalyticsServiceClass {
   async init() {
     if (this.initialized) return;
     try {
-      if (FirebaseAnalytics.setDebugModeEnabledAsync) {
-        await FirebaseAnalytics.setDebugModeEnabledAsync(true);
+      if (FirebaseAnalytics.setDebugModeEnabled) {
+        await FirebaseAnalytics.setDebugModeEnabled(true);
       }
       this.initialized = true;
     } catch (error) {

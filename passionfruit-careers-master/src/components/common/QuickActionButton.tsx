@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 100,
+    height: 120,
     ...shadows.md,
   },
   iconContainer: {

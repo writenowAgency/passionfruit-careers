@@ -19,11 +19,15 @@ import { bootstrapAuth } from '@/store/slices/authSlice';
 import { scheduleDailySummaryNotification } from '@/services/notifications';
 import { AnalyticsService } from '@/services/analytics';
 
+// App version - update this to force cache refresh
+const APP_VERSION = '1.0.1-20260112';
+
 const AppContent = () => {
   const offline = useOfflineStatus();
   const dispatch = useAppDispatch();
 
   React.useEffect(() => {
+    console.log(`🚀 Passionfruit Careers App Version: ${APP_VERSION}`);
     dispatch(bootstrapAuth());
     void AnalyticsService.init();
     void scheduleDailySummaryNotification();

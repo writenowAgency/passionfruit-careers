@@ -117,16 +117,9 @@ const EmployerHome: React.FC = () => {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    let greeting = '';
-    if (hour < 12) greeting = 'Good Morning';
-    else if (hour < 18) greeting = 'Good Afternoon';
-    else greeting = 'Good Evening';
-
-    // Add company name if available
-    if (companyName) {
-      return `${greeting}, ${companyName}`;
-    }
-    return greeting;
+    if (hour < 12) return 'Good Morning,';
+    if (hour < 18) return 'Good Afternoon,';
+    return 'Good Evening,';
   };
 
   // Navigation handlers
@@ -225,6 +218,11 @@ const EmployerHome: React.FC = () => {
               <Text variant="displaySmall" style={styles.heroTitle}>
                 {getGreeting()}
               </Text>
+              {companyName ? (
+                <Text variant="displaySmall" style={[styles.heroTitle, { marginTop: -spacing.xs }]}>
+                  {companyName}
+                </Text>
+              ) : null}
               <Text variant="bodyLarge" style={styles.heroSubtitle}>
                 {pendingReviews} applicant{pendingReviews !== 1 ? 's' : ''} waiting for review
               </Text>
@@ -359,7 +357,7 @@ const EmployerHome: React.FC = () => {
               <ScaleUp delay={250} style={styles.statCardWrapper}>
                 <EnhancedStatCard
                   icon="star"
-                  value={`${avgMatchScore}%`}
+                  value={avgMatchScore}
                   label="Avg Match Score"
                   progress={avgMatchScore}
                   gradientColors={['#8B5CF6', '#A78BFA']}
@@ -596,15 +594,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+    marginTop: spacing.md,
   },
   statsGridTablet: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: spacing.md,
+    marginTop: spacing.md,
   },
   statCardWrapper: {
-    width: '31%',
+    width: '32.5%',
     minWidth: 100,
+    flexBasis: '32.5%',
+    maxWidth: '32.5%',
   },
   card: {
     marginBottom: spacing.md,

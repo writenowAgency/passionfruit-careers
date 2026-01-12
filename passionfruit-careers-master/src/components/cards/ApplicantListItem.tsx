@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
 import { RecentApplicant } from '@/services/employerApi';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -18,6 +19,7 @@ export const ApplicantListItem: React.FC<ApplicantListItemProps> = ({
   onPress,
   showMatchScore = true,
 }) => {
+  const responsive = useResponsiveStyles();
   const scale = useSharedValue(1);
 
   const handlePressIn = () => {
@@ -81,6 +83,7 @@ export const ApplicantListItem: React.FC<ApplicantListItemProps> = ({
         style={[
           styles.container,
           {
+            padding: responsive.padding(20),
             borderLeftColor: showMatchScore
               ? getMatchScoreColor(applicant.matchScore)
               : 'transparent',
@@ -91,7 +94,10 @@ export const ApplicantListItem: React.FC<ApplicantListItemProps> = ({
           colors={getAvatarGradient(applicant.matchScore)}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.avatar}
+          style={[styles.avatar, {
+            width: responsive.scale(56),
+            height: responsive.scale(56),
+          }]}
         >
           <Text style={styles.avatarText}>
             {applicant.name.charAt(0).toUpperCase()}
@@ -106,7 +112,7 @@ export const ApplicantListItem: React.FC<ApplicantListItemProps> = ({
 
         <View style={styles.info}>
           <View style={styles.nameRow}>
-            <Text variant="titleMedium" style={styles.name}>
+            <Text variant="titleMedium" style={styles.name} numberOfLines={1} ellipsizeMode="tail">
               {applicant.name}
             </Text>
             {showMatchScore && (
@@ -146,7 +152,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: 20,
+    // Padding applied dynamically via responsive hook
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     borderLeftWidth: 4,
@@ -161,8 +167,7 @@ const styles = StyleSheet.create({
     // Let's stick to just premium shadow + borderLeft logic
   },
   avatar: {
-    width: 56,
-    height: 56,
+    // Width and height applied dynamically via responsive hook
     borderRadius: borderRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',

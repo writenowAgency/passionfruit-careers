@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
 
 export interface CreditPackage {
   id: string;
@@ -26,6 +28,8 @@ export const CreditPackageCard: React.FC<CreditPackageCardProps> = ({
   package: pkg,
   onPress,
 }) => {
+  const { isMobile } = useResponsive();
+  const responsive = useResponsiveStyles();
   const scale = useSharedValue(1);
 
   const handlePressIn = () => {
@@ -43,7 +47,11 @@ export const CreditPackageCard: React.FC<CreditPackageCardProps> = ({
   const pricePerCredit = (pkg.price / pkg.credits).toFixed(2);
 
   return (
-    <Animated.View style={[styles.container, animatedStyle]}>
+    <Animated.View style={[
+      styles.container,
+      animatedStyle,
+      !isMobile && { flex: 1, minWidth: 300 } // Allow grid layout on tablet/desktop
+    ]}>
       <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
         <LinearGradient
           colors={
@@ -62,7 +70,11 @@ export const CreditPackageCard: React.FC<CreditPackageCardProps> = ({
             </View>
           )}
 
-          <View style={[styles.content, pkg.popular && styles.contentPopular]}>
+          <View style={[
+            styles.content,
+            pkg.popular && styles.contentPopular,
+            { padding: responsive.padding(spacing.xl) }
+          ]}>
             {/* Header */}
             <View style={styles.header}>
               <Text
@@ -169,8 +181,7 @@ export const CreditPackageCard: React.FC<CreditPackageCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    minWidth: '100%',
+    width: '100%',
     borderRadius: borderRadius.xl,
     overflow: 'hidden',
     ...shadows.md,
@@ -195,7 +206,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   content: {
-    padding: spacing.xl,
     gap: spacing.lg,
   },
   contentPopular: {

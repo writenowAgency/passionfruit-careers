@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { profileApi, ProfileData, PersonalInfoUpdate, SkillCreate, ExperienceCreate, EducationCreate } from '../../services/profileApi';
-import { RootState } from '../store';
+import type { RootState } from '../index';
 
 interface ProfileState {
   data: ProfileData | null;

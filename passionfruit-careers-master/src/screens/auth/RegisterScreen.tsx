@@ -59,7 +59,8 @@ const RegisterScreen: React.FC = () => {
       dispatch(setRole(role));
       dispatch(loginSuccess({
         token: response.token,
-        userRole: role
+        userRole: role,
+        user: response.user
       }));
 
       Alert.alert(

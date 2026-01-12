@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button, Chip, Divider } from 'react-native-paper';
 import { colors, spacing } from '@/theme';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
 
 // Filter values that match the database schema
 const JOB_TYPES = [
@@ -20,10 +21,22 @@ const EXP_LEVELS = [
 
 const DATE_POSTED = ['Anytime', 'Past 24 hours', 'Past week', 'Past month'];
 
-export const FilterModal = ({ visible, onClose, applyFilters, currentFilters }) => {
+interface FilterModalProps {
+  visible: boolean;
+  onClose: () => void;
+  applyFilters: (filters: any) => void;
+  currentFilters: {
+    jobType: string | null;
+    experienceLevel: string | null;
+    datePosted: string | null;
+  };
+}
+
+export const FilterModal: React.FC<FilterModalProps> = ({ visible, onClose, applyFilters, currentFilters }) => {
   const [jobType, setJobType] = useState(currentFilters.jobType);
   const [expLevel, setExpLevel] = useState(currentFilters.experienceLevel);
   const [datePosted, setDatePosted] = useState(currentFilters.datePosted);
+  const responsive = useResponsiveStyles();
 
   const handleApply = () => {
     applyFilters({
@@ -46,10 +59,10 @@ export const FilterModal = ({ visible, onClose, applyFilters, currentFilters }) 
     onClose();
   };
 
-  const FilterSection = ({ title, children }) => (
+  const FilterSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.chipsContainer}>{children}</View>
+      <View style={[styles.chipsContainer, { gap: responsive.spacing(spacing.sm) }]}>{children}</View>
       <Divider style={styles.divider} />
     </View>
   );
@@ -103,9 +116,9 @@ export const FilterModal = ({ visible, onClose, applyFilters, currentFilters }) 
             ))}
           </FilterSection>
         </ScrollView>
-        <View style={styles.footer}>
-          <Button onPress={handleClear}>Clear</Button>
-          <Button mode="contained" onPress={handleApply}>Apply Filters</Button>
+        <View style={[styles.footer, { padding: responsive.padding(spacing.md) }]}>
+          <Button onPress={handleClear} style={{ flex: 1, marginRight: responsive.spacing(spacing.sm) }}>Clear</Button>
+          <Button mode="contained" onPress={handleApply} style={{ flex: 2 }}>Apply Filters</Button>
         </View>
       </View>
     </Modal>
@@ -140,15 +153,14 @@ const styles = StyleSheet.create({
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
   },
   divider: {
     marginTop: spacing.lg,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: colors.divider,
   },

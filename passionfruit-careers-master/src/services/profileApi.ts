@@ -459,7 +459,7 @@ class ProfileApiService {
   }
 
   // Upload document/resume
-  async uploadDocument(token: string, documentUri: string): Promise<{ message: string; documentUrl: string; fileName: string }> {
+  async uploadDocumentByUri(token: string, documentUri: string): Promise<{ message: string; documentUrl: string; fileName: string }> {
     try {
       const formData = new FormData();
 

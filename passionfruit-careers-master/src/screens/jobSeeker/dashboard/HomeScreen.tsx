@@ -38,9 +38,9 @@ const HomeScreen: React.FC = () => {
   // Get current hour for greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return 'Good morning,';
+    if (hour < 18) return 'Good afternoon,';
+    return 'Good evening,';
   };
 
   // Clear cache on mount to remove any stale dummy data
@@ -170,8 +170,8 @@ const HomeScreen: React.FC = () => {
             )}
 
             <View style={styles.greetingTextContainer}>
-              <Text variant="headlineMedium" style={styles.greeting}>
-                {getGreeting()}, {profile.data?.user?.firstName || 'there'}!
+              <Text variant="displaySmall" style={styles.greeting}>
+                {getGreeting()}
               </Text>
               <Text variant="displaySmall" style={styles.userName}>
                 {userName}
@@ -337,14 +337,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   greeting: {
-    color: colors.textSecondary,
-    fontWeight: '500',
-    marginBottom: spacing.xs,
+    color: colors.text,
+    fontWeight: '700',
+    marginBottom: 0,
   },
   userName: {
     color: colors.text,
     fontWeight: '700',
     fontSize: 32,
+    marginTop: -4,
   },
   userHeadline: {
     color: colors.textSecondary,

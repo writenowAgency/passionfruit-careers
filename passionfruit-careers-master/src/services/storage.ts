@@ -79,7 +79,7 @@ export const uploadFile = async ({
     // Generate public URL
     const fileUrl = R2_PUBLIC_URL
       ? `${R2_PUBLIC_URL}/${key}`
-      : await getSignedUrl(r2Client, new GetObjectCommand({
+      : await getSignedUrl(r2Client as any, new GetObjectCommand({
           Bucket: R2_BUCKET_NAME,
           Key: key,
         }), { expiresIn: 31536000 }); // 1 year for pre-signed URLs
@@ -116,7 +116,7 @@ export const getFileUrl = async (key: string, expiresIn: number = 3600): Promise
       Key: key,
     });
 
-    return await getSignedUrl(r2Client, command, { expiresIn });
+    return await getSignedUrl(r2Client as any, command, { expiresIn });
   } catch (error) {
     console.error('Get URL error:', error);
     throw error;

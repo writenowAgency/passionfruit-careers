@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CircularProgress } from '@/components/common/CircularProgress';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 interface EnhancedStatCardProps {
@@ -25,6 +26,7 @@ export const EnhancedStatCard: React.FC<EnhancedStatCardProps> = ({
   gradientColors = [colors.surface, colors.surface] as readonly [ColorValue, ColorValue],
   onPress,
 }) => {
+  const responsive = useResponsiveStyles();
   const scale = useSharedValue(1);
   const elevation = useSharedValue(4);
 
@@ -57,7 +59,13 @@ export const EnhancedStatCard: React.FC<EnhancedStatCardProps> = ({
       colors={gradientColors}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.card}
+      style={[
+        styles.card,
+        {
+          padding: responsive.spacing(spacing.md),
+          minHeight: 160,
+        }
+      ]}
     >
       <View style={styles.iconContainer}>
         <Ionicons name={icon} size={24} color={colors.primary} />
@@ -66,8 +74,8 @@ export const EnhancedStatCard: React.FC<EnhancedStatCardProps> = ({
       <View style={styles.progressContainer}>
         <CircularProgress
           percentage={progress}
-          size={100}
-          strokeWidth={8}
+          size={70}
+          strokeWidth={6}
           color={colors.primary}
           backgroundColor="rgba(0,0,0,0.05)"
         />
@@ -113,19 +121,17 @@ export const EnhancedStatCard: React.FC<EnhancedStatCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    padding: spacing.lg,
     borderRadius: borderRadius.xl,
     alignItems: 'center',
-    height: 215,
     justifyContent: 'center',
     ...shadows.md,
   },
   iconContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   progressContainer: {
     position: 'relative',
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   valueContainer: {
     position: 'absolute',
@@ -144,12 +150,15 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     fontWeight: '600',
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    lineHeight: 18,
   },
   trendBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: spacing.sm,
+    marginTop: 4,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.pill,

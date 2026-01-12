@@ -6,6 +6,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -28,6 +30,7 @@ export const scheduleDailySummaryNotification = async () => {
       body: 'Your AI auto-apply summary is ready to review.',
     },
     trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
       hour: 20,
       minute: 0,
       repeats: true,

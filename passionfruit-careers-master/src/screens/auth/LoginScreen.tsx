@@ -56,7 +56,8 @@ const LoginScreen: React.FC = () => {
       dispatch(setRole(role));
       dispatch(loginSuccess({
         token: response.token,
-        userRole: role
+        userRole: role,
+        user: response.user
       }));
 
       track('login_success', { role, email: values.email });

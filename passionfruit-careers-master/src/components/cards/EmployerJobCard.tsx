@@ -1,11 +1,13 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, ViewStyle, DimensionValue } from 'react-native';
 import { Text, Chip } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
 import { Job } from '@/services/employerApi';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
 
 interface EmployerJobCardProps {
   job: Job;
@@ -22,6 +24,8 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
   onDelete,
   onViewApplicants,
 }) => {
+  const { isMobile, isTablet, isDesktop } = useResponsive();
+  const responsive = useResponsiveStyles();
   const scale = useSharedValue(1);
 
   const handlePressIn = () => {
@@ -82,6 +86,13 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
     }
   };
 
+  // Dynamic styles based on device type
+  const getDetailItemStyle = (): ViewStyle => {
+    if (isMobile) return { minWidth: '100%' as DimensionValue };
+    if (isTablet) return { minWidth: '48%' as DimensionValue };
+    return { minWidth: '30%' as DimensionValue };
+  };
+
   return (
     <Animated.View style={animatedStyle}>
       <Pressable
@@ -102,7 +113,7 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
           style={styles.accentBar}
         />
 
-        <View style={styles.content}>
+        <View style={[styles.content, { padding: responsive.padding(spacing.lg) }]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.titleContainer}>
@@ -122,7 +133,7 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
           {/* Details Grid */}
           <View style={styles.detailsGrid}>
             {job.location && (
-              <View style={styles.detailItem}>
+              <View style={[styles.detailItem, getDetailItemStyle()]}>
                 <View style={[styles.iconBadge, { backgroundColor: `${colors.primary}15` }]}>
                   <Ionicons name="location" size={16} color={colors.primary} />
                 </View>
@@ -133,7 +144,7 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
             )}
 
             {job.job_type && (
-              <View style={styles.detailItem}>
+              <View style={[styles.detailItem, getDetailItemStyle()]}>
                 <View style={[styles.iconBadge, { backgroundColor: `${colors.secondary}15` }]}>
                   <Ionicons name="time" size={16} color={colors.secondary} />
                 </View>
@@ -143,7 +154,7 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
               </View>
             )}
 
-            <View style={styles.detailItem}>
+            <View style={[styles.detailItem, getDetailItemStyle()]}>
               <View style={[styles.iconBadge, { backgroundColor: `${colors.success}15` }]}>
                 <Ionicons name="cash" size={16} color={colors.success} />
               </View>
@@ -153,7 +164,7 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
             </View>
 
             {job.experience_level && (
-              <View style={styles.detailItem}>
+              <View style={[styles.detailItem, getDetailItemStyle()]}>
                 <View style={[styles.iconBadge, { backgroundColor: `${colors.info}15` }]}>
                   <Ionicons name="school" size={16} color={colors.info} />
                 </View>
@@ -165,7 +176,7 @@ export const EmployerJobCard: React.FC<EmployerJobCardProps> = ({
           </View>
 
           {/* Stats Row */}
-          <View style={styles.statsContainer}>
+          <View style={[styles.statsContainer, { gap: responsive.spacing(spacing.sm) }]}>
             <View style={styles.statCard}>
               <Ionicons name="eye" size={20} color={colors.primary} />
               <View>
@@ -297,7 +308,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    minWidth: '45%',
   },
   iconBadge: {
     width: 32,

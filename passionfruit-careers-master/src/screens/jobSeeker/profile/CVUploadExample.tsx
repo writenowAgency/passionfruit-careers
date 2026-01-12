@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet, Alert } from 'react-native';
 import { Card, Text, Chip, Button } from 'react-native-paper';
 import { FileUploader } from '@/components/common/FileUploader';
 import { useAppDispatch } from '@/store/hooks';
-import { addDocument } from '@/store/slices/profileSlice';
+// import { addDocument } from '@/store/slices/profileSlice';
 import { ScreenContainer } from '@/components/common/ScreenContainer';
 
 /**
@@ -26,12 +26,12 @@ const CVUploadExample: React.FC = () => {
     ]);
 
     // Add to Redux store
-    dispatch(
-      addDocument({
-        id: key,
-        name: fileName,
-      })
-    );
+    // dispatch(
+    //   addDocument({
+    //     id: key,
+    //     name: fileName,
+    //   })
+    // );
 
     Alert.alert('Success', 'File uploaded successfully!');
   };

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Button, Text } from 'react-native-paper';
 import { StorageService, FileCategory } from '@/services/storage';
 import { useAppSelector } from '@/store/hooks';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
+import { colors, spacing, borderRadius } from '@/theme';
 
 interface Props {
   onUploadComplete?: (fileUrl: string, key: string) => void;
@@ -25,6 +27,7 @@ export const FileUploader: React.FC<Props> = ({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
   const userId = useAppSelector((state) => state.auth.user?.id || 'guest');
+  const responsive = useResponsiveStyles();
 
   const handlePick = async () => {
     try {
@@ -62,20 +65,20 @@ export const FileUploader: React.FC<Props> = ({
       setUploadProgress('Uploading to cloud...');
 
       // Upload to R2
-      const result = await StorageService.uploadFile({
+      const uploadResult = await StorageService.uploadFile({
         file,
         fileName: selectedFile.name,
         category,
-        userId,
-        contentType: selectedFile.mimeType || undefined,
+        userId: String(userId),
+        contentType: file.mimeType,
       });
 
-      if (result.success) {
+      if (uploadResult.success) {
         setUploadProgress('Upload complete!');
-        onUploadComplete?.(result.fileUrl, result.key);
+        onUploadComplete?.(uploadResult.fileUrl, uploadResult.key);
         setTimeout(() => setUploadProgress(''), 2000);
       } else {
-        onError?.(result.error || 'Upload failed');
+        onError?.(uploadResult.error || 'Upload failed');
         setUploadProgress('');
       }
     } catch (error) {
@@ -88,13 +91,13 @@ export const FileUploader: React.FC<Props> = ({
   };
 
   return (
-    <View style={{ padding: 16, borderWidth: 1, borderStyle: 'dashed', borderRadius: 16, borderColor: '#F4E04D' }}>
-      <Text variant="bodyMedium" style={{ marginBottom: 12 }}>
+    <View style={[styles.container, { padding: responsive.padding(spacing.md) }]}>
+      <Text variant="bodyMedium" style={styles.label}>
         {label}
       </Text>
       {uploadProgress ? (
-        <View style={{ alignItems: 'center', gap: 8 }}>
-          <ActivityIndicator size="small" color="#F4E04D" />
+        <View style={[styles.progressContainer, { gap: responsive.spacing(spacing.sm) }]}>
+          <ActivityIndicator size="small" color={colors.primary} />
           <Text variant="bodySmall">{uploadProgress}</Text>
         </View>
       ) : (
@@ -102,8 +105,8 @@ export const FileUploader: React.FC<Props> = ({
           mode="contained-tonal"
           onPress={handlePick}
           disabled={uploading}
-          buttonColor="#F4E04D"
-          textColor="#2E2E2E"
+          buttonColor={colors.primary}
+          textColor={colors.text}
         >
           {uploading ? 'Uploading...' : 'Choose file'}
         </Button>
@@ -111,3 +114,18 @@ export const FileUploader: React.FC<Props> = ({
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderRadius: borderRadius.lg,
+    borderColor: colors.primary,
+  },
+  label: {
+    marginBottom: spacing.sm,
+  },
+  progressContainer: {
+    alignItems: 'center',
+  },
+});

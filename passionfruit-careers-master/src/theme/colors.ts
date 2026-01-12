@@ -40,6 +40,8 @@ export const colors = {
   border: '#E0E0E0',
   borderLight: '#F5F5F5',
   divider: '#EEEEEE',
+  card: '#FFFFFF',
+  seeds: '#2D2D2D',
 
   // Overlay Colors
   overlay: 'rgba(0, 0, 0, 0.5)',

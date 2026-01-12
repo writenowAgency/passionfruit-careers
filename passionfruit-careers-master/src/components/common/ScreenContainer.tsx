@@ -1,6 +1,7 @@
 import React from 'react';
 import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
 
 interface Props {
   title?: string;
@@ -17,8 +18,15 @@ export const ScreenContainer: React.FC<Props> = ({
   refreshing,
   noScroll,
 }) => {
+  const responsive = useResponsiveStyles();
+
+  const contentStyle = {
+    padding: responsive.padding(20),
+    gap: responsive.spacing(16),
+  };
+
   const content = (
-    <View style={styles.content}>
+    <View style={[styles.content, contentStyle]}>
       {title ? (
         <Text variant="headlineMedium" style={styles.title} accessibilityRole="header">
           {title}
@@ -51,6 +59,6 @@ export const ScreenContainer: React.FC<Props> = ({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#FAFAFA' },
   scrollContent: { flexGrow: 1 },
-  content: { padding: 20, gap: 16 },
+  content: { },
   title: { marginBottom: 4 },
 });

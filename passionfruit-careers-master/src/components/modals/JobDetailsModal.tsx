@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { useResponsive } from '@/hooks/useResponsive';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
+import { Z_INDEX } from '@/constants/zIndex';
 import type { Job } from '@/types';
 import { MatchScoreBadge } from '../common/MatchScoreBadge';
 import { useAppSelector } from '@/store/hooks';
@@ -19,17 +22,20 @@ interface Props {
   isSaved?: boolean;
 }
 
-const DetailSection = ({ icon, title, children }: { icon: any, title: string, children: React.ReactNode }) => (
-  <View style={styles.section}>
-    <View style={styles.sectionHeader}>
-      <Ionicons name={icon} size={24} color={colors.primary} />
-      <Text variant="titleLarge" style={styles.sectionTitle}>
-        {title}
-      </Text>
+const DetailSection = ({ icon, title, children }: { icon: any, title: string, children: React.ReactNode }) => {
+  const responsive = useResponsiveStyles();
+  return (
+    <View style={[styles.section, { padding: responsive.spacing(spacing.lg) }]}>
+      <View style={styles.sectionHeader}>
+        <Ionicons name={icon} size={responsive.scale(24)} color={colors.primary} />
+        <Text variant="titleLarge" style={styles.sectionTitle}>
+          {title}
+        </Text>
+      </View>
+      {children}
     </View>
-    {children}
-  </View>
-);
+  );
+};
 
 const parseDescription = (description: string) => {
   const sections: { [key: string]: string[] } = {
@@ -79,9 +85,13 @@ export const JobDetailsModal: React.FC<Props> = ({
   hasApplied = false,
   isSaved = false,
 }) => {
+  const { isMobile } = useResponsive();
+  const responsive = useResponsiveStyles();
+
   if (!job) return null;
 
   const parsedSections = parseDescription(job.description || '');
+  const footerHeight = isMobile ? 100 : 120;
 
   const formatSalary = () => {
     if (!job.salaryMin && !job.salaryMax) return 'Competitive salary';
@@ -143,7 +153,10 @@ export const JobDetailsModal: React.FC<Props> = ({
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Company Logo & Title */}
           <View style={styles.companySection}>
-            <View style={styles.logoContainer}>
+            <View style={[styles.logoContainer, {
+              width: responsive.scale(80),
+              height: responsive.scale(80),
+            }]}>
               {job.companyLogo ? (
                 <Image
                   source={{ uri: job.companyLogo }}
@@ -316,7 +329,7 @@ export const JobDetailsModal: React.FC<Props> = ({
           </DetailSection>
 
           {/* Spacer for fixed footer */}
-          <View style={{ height: 120 }} />
+          <View style={{ height: responsive.scale(footerHeight) }} />
         </ScrollView>
 
         {/* Fixed Footer with Apply Button */}
@@ -361,6 +374,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    zIndex: Z_INDEX.modal,
+    elevation: Z_INDEX.modal,
   },
   header: {
     flexDirection: 'row',
@@ -392,8 +407,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
+    // Width and height applied dynamically via responsive hook
     borderRadius: borderRadius.md,
     backgroundColor: colors.background,
     borderWidth: 1,
@@ -452,7 +466,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   section: {
-    padding: spacing.lg,
+    // Padding applied dynamically via responsive hook in DetailSection
   },
   sectionHeader: {
     flexDirection: 'row',

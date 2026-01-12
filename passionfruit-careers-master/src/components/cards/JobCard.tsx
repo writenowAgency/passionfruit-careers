@@ -12,6 +12,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { MatchScoreBadge } from '../common/MatchScoreBadge';
 import { colors, spacing, borderRadius, shadows } from '@/theme';
+import { useResponsiveStyles } from '@/hooks/useResponsiveStyles';
 import type { Job } from '../../types';
 import { Image } from 'expo-image';
 
@@ -28,6 +29,7 @@ interface Props {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApplying = false, hasApplied = false, isSaved = false }) => {
+  const responsive = useResponsiveStyles();
   const scale = useSharedValue(1);
   const shadowOpacity = useSharedValue(shadows.md.shadowOpacity);
 
@@ -95,15 +97,15 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
   const matchScore = job.matchScore || Math.floor(Math.random() * 20) + 75;
 
   const renderRightActions = () => (
-    <View style={[styles.swipeAction, styles.swipeActionApply]}>
-      <Ionicons name="paper-plane" size={24} color={colors.text} />
+    <View style={[styles.swipeAction, styles.swipeActionApply, { width: responsive.scale(90) }]}>
+      <Ionicons name="paper-plane" size={responsive.scale(24)} color={colors.text} />
       <Text style={styles.swipeActionText}>Apply</Text>
     </View>
   );
 
   const renderLeftActions = () => (
-    <View style={[styles.swipeAction, styles.swipeActionSave]}>
-      <Ionicons name="bookmark" size={24} color={colors.text} />
+    <View style={[styles.swipeAction, styles.swipeActionSave, { width: responsive.scale(90) }]}>
+      <Ionicons name="bookmark" size={responsive.scale(24)} color={colors.text} />
       <Text style={styles.swipeActionText}>Save</Text>
     </View>
   );
@@ -120,10 +122,13 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
     >
       <Animated.View style={[styles.cardWrapper, animatedCardStyle]}>
         <Card style={styles.card}>
-          <Card.Content style={styles.cardContent}>
+          <Card.Content style={[styles.cardContent, { padding: responsive.padding(20) }]}>
             {/* Header with Logo and Match Score */}
             <View style={styles.header}>
-              <View style={styles.logoContainer}>
+              <View style={[styles.logoContainer, {
+                width: responsive.scale(56),
+                height: responsive.scale(56),
+              }]}>
                 {job.companyLogo ? (
                   <Image
                     source={{ uri: job.companyLogo }}
@@ -146,7 +151,7 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
               </View>
               <Pressable onPress={onView} style={styles.headerInfo}>
                 <View style={styles.titleRow}>
-                  <Text variant="titleLarge" style={styles.jobTitle} numberOfLines={2}>
+                  <Text variant="titleLarge" style={styles.jobTitle} numberOfLines={2} ellipsizeMode="tail">
                     {job.title}
                   </Text>
                   {hasApplied && (
@@ -155,7 +160,7 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
                     </View>
                   )}
                 </View>
-                <Text variant="bodyMedium" style={styles.companyName}>
+                <Text variant="bodyMedium" style={styles.companyName} numberOfLines={1} ellipsizeMode="tail">
                   {job.company}
                 </Text>
               </Pressable>
@@ -168,8 +173,8 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
             <View style={styles.chipsContainer}>
               {job.location && (
                 <Chip
-                  icon={() => <Ionicons name="location" size={14} color={colors.text} />}
-                  style={styles.chip}
+                  icon={() => <Ionicons name="location" size={responsive.scale(14)} color={colors.text} />}
+                  style={[styles.chip, { height: responsive.scale(32) }]}
                   textStyle={styles.chipText}
                   compact
                 >
@@ -178,8 +183,8 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
               )}
               {job.jobType && (
                 <Chip
-                  icon={() => <Ionicons name="briefcase" size={14} color={colors.text} />}
-                  style={styles.chip}
+                  icon={() => <Ionicons name="briefcase" size={responsive.scale(14)} color={colors.text} />}
+                  style={[styles.chip, { height: responsive.scale(32) }]}
                   textStyle={styles.chipText}
                   compact
                 >
@@ -187,8 +192,8 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
                 </Chip>
               )}
               <Chip
-                icon={() => <Ionicons name="cash" size={14} color={colors.text} />}
-                style={[styles.chip, styles.salaryChip]}
+                icon={() => <Ionicons name="cash" size={responsive.scale(14)} color={colors.text} />}
+                style={[styles.chip, styles.salaryChip, { height: responsive.scale(32) }]}
                 textStyle={styles.salaryChipText}
                 compact
               >
@@ -198,7 +203,7 @@ export const JobCard: React.FC<Props> = ({ job, onApply, onSave, onView, isApply
 
             {/* Description */}
             <Pressable onPress={onView}>
-              <Text variant="bodyMedium" style={styles.description} numberOfLines={3}>
+              <Text variant="bodyMedium" style={styles.description} numberOfLines={3} ellipsizeMode="tail">
                 {job.description}
               </Text>
             </Pressable>
@@ -287,7 +292,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(0,0,0,0.03)',
     },
     cardContent: {
-        padding: 20,
+        // Padding applied dynamically via responsive hook
     },
     header: {
         flexDirection: 'row',
@@ -297,8 +302,7 @@ const styles = StyleSheet.create({
         paddingRight: 24, // Make room for save button
     },
     logoContainer: {
-        width: 56,
-        height: 56,
+        // Width and height applied dynamically via responsive hook
         borderRadius: borderRadius.md,
         backgroundColor: colors.background,
         borderWidth: 1,
@@ -340,7 +344,7 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background,
         borderWidth: 1,
         borderColor: colors.border,
-        height: 32,
+        // Height applied dynamically via responsive hook
     },
     chipText: {
         fontSize: 12,
@@ -420,7 +424,7 @@ const styles = StyleSheet.create({
     swipeAction: {
         justifyContent: 'center',
         alignItems: 'center',
-        width: 90,
+        // Width applied dynamically via responsive hook
         marginBottom: spacing.md,
         borderRadius: borderRadius.xl,
     },
